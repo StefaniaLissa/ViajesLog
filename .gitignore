@@ -1,0 +1,78 @@
+
+# Directorios de compilación
+/build
+/app/build
+/.cxx/
+.cxx
+
+# Archivos de configuración locales de Android Studio
+/local.properties
+/.idea/caches
+/.idea/libraries
+/.idea/modules.xml
+/.idea/workspace.xml
+/.idea/navEditor.xml
+/.idea/assetWizardSettings.xml
+/.idea/misc.xml
+/.idea/vcs.xml
+
+# Archivos de configuración específicos del sistema
+.DS_Store
+Thumbs.db
+*.iml
+*.log
+
+# Configuración de Gradle
+.gradle
+.gradle/
+/.idea/gradle.xml
+/.idea/gradleSettings.xml
+
+# Archivos de la caché de dependencia de Gradle
+/caches/
+/wrapper/dists/
+
+# Configuración del sistema operativo
+*.swp
+*.swo
+
+# Archivos específicos de compilación
+*.apk
+*.ap_
+*.dex
+*.class
+*.jar
+*.war
+*.ear
+
+# Archivos de empaquetado
+*.zip
+*.tar.gz
+*.rar
+
+# Llaves y configuraciones privadas
+*.keystore
+/key.properties
+
+# Configuración de versiones
+*.bak
+*.orig
+
+# Directorios de salida
+/captures
+/captures/
+outputs/
+.idea/navEditor.xml
+
+# Archivos generados por el plugin de Google Services
+*.hprof
+google-services.json
+fabric.properties
+crashlytics.properties
+
+# Archivos de test o reportes generados
+/test-results/
+**/reports/
+
+# Otros
+.externalNativeBuild

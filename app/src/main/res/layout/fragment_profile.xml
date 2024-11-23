@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/fragment_container"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:layout_gravity="top"
+    tools:context=".view.profile.ProfileFragment">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_gravity="top"
+        android:gravity="top"
+        android:orientation="vertical">
+
+        <RelativeLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="top"
+            android:gravity="top">
+
+            <ImageView
+                android:id="@+id/iv_cover"
+                android:layout_width="match_parent"
+                android:layout_height="220dp"
+                android:background="@color/white"
+                android:scaleType="centerCrop"
+                android:src="@drawable/img_banner_profile" />
+
+            <com.google.android.material.imageview.ShapeableImageView
+                android:id="@+id/iv_imagen"
+                android:layout_width="130dp"
+                android:layout_height="130dp"
+                android:layout_marginStart="30dp"
+                android:layout_marginTop="130dp"
+                android:scaleType="centerCrop"
+                app:shapeAppearanceOverlay="@style/RoundedImageView"/>
+
+        </RelativeLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_marginTop="-40dp"
+            android:orientation="vertical"
+            android:padding="30dp">
+
+            <ImageView
+                android:id="@+id/iv_edit"
+                android:layout_width="60dp"
+                android:layout_height="60dp"
+                android:layout_gravity="right"
+                android:src="@drawable/btn_round_edit" />
+
+            <TextView
+                android:id="@+id/tv_name"
+                android:textStyle="bold"
+                android:layout_width="300dp"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="-20dp"
+                android:layout_marginBottom="@dimen/margin_touch_min"
+                android:textSize="@dimen/title_20" />
+
+            <TextView
+                android:id="@+id/tv_email"
+                android:textStyle="bold"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/margin_touch_min"
+                android:layout_marginBottom="@dimen/margin_touch_min"
+                android:textSize="@dimen/title_20" />
+
+
+            <TextView
+                android:id="@+id/tv_online"
+                android:textColor="@color/black"
+                android:layout_width="match_parent"
+                android:layout_height="@dimen/touch_min"
+                android:layout_marginTop="@dimen/margin_touch_min"
+                android:layout_marginBottom="@dimen/margin_touch_min"
+                android:checked="false"
+                android:visibility="visible"
+                android:text="Nuevos viajes públicos por defecto"
+                android:textSize="@dimen/title_20" />
+
+
+            <Button
+                android:id="@+id/btn_logout"
+                android:background="@drawable/bt_rounded_corner"
+                android:layout_width="match_parent"
+                android:layout_height="@dimen/touch_btn"
+                android:paddingBottom="5dp"
+                android:layout_marginTop="@dimen/margin_touch_min"
+                android:layout_marginBottom="@dimen/margin_touch_min"
+                android:gravity="center"
+                android:text="@string/logout"
+                android:textSize="@dimen/font_std" />
+        </LinearLayout>
+    </LinearLayout>
+</FrameLayout>

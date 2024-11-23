@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+    <item
+        android:id="@+id/album"
+        android:icon="@drawable/ic_album"
+        android:title="Album"
+        app:showAsAction="ifRoom" />
+
+    <item
+        android:id="@+id/edit"
+        android:icon="@drawable/ic_edit"
+        android:title="Editar Viaje"
+        app:showAsAction="ifRoom" />
+
+    <item
+        android:id="@+id/share"
+        android:title="Compartir Viaje"
+        app:showAsAction="collapseActionView" />
+
+    <item
+        android:id="@+id/add_from_img"
+        android:title="Crear desde Imagen"
+        app:showAsAction="collapseActionView" />
+</menu>

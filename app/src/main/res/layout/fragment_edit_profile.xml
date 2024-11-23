@@ -1,0 +1,182 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/yellow"
+    tools:context=".view.profile.EditProfileFragment">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical">
+
+        <RelativeLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="top"
+            android:gravity="top">
+
+            <ImageView
+                android:id="@+id/iv_cover"
+                android:layout_width="match_parent"
+                android:layout_height="220dp"
+                android:background="@color/white"
+                android:scaleType="centerCrop"
+                android:src="@drawable/img_banner_profile" />
+
+            <RelativeLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content">
+
+                <com.google.android.material.imageview.ShapeableImageView
+                    android:id="@+id/iv_imagen"
+                    android:layout_width="130dp"
+                    android:layout_height="130dp"
+                    android:layout_marginStart="30dp"
+                    android:layout_marginTop="130dp"
+                    android:scaleType="centerCrop"
+                    app:shapeAppearanceOverlay="@style/RoundedImageView" />
+
+                <ProgressBar
+                    android:id="@+id/pb_img"
+                    android:layout_width="130dp"
+                    android:layout_height="130dp"
+                    android:layout_marginStart="30dp"
+                    android:layout_marginTop="130dp"
+                    android:visibility="gone" />
+
+            </RelativeLayout>
+
+        </RelativeLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingStart="@dimen/padding_ll_std"
+            android:paddingEnd="@dimen/padding_ll_std">
+
+            <ImageView
+                android:id="@+id/iv_delete"
+                android:layout_width="@dimen/touch_btn"
+                android:layout_height="@dimen/touch_btn"
+                android:layout_gravity="right"
+                android:layout_marginTop="15dp"
+                android:layout_marginEnd="5dp"
+                android:src="@drawable/btn_round_delete" />
+
+            <Button
+                android:id="@+id/btn_new_image"
+                android:layout_width="wrap_content"
+                android:layout_height="@dimen/touch_btn"
+                android:layout_marginLeft="@dimen/margin_touch_min"
+                android:layout_marginTop="-50dp"
+                android:layout_marginRight="@dimen/margin_touch_min"
+                android:layout_marginBottom="@dimen/margin_touch_min"
+                android:background="@drawable/bt_rounded_corner"
+                android:paddingHorizontal="@dimen/touch_min"
+                android:paddingBottom="5dp"
+                android:text="SUBIR FOTO DE PERFIL"
+                android:textSize="@dimen/font_std" />
+
+            <EditText
+                android:id="@+id/et_name"
+                android:layout_width="match_parent"
+                android:layout_height="@dimen/touch_min"
+                android:layout_margin="@dimen/margin_touch_min"
+                android:autofillHints="true"
+                android:background="@color/white"
+                android:drawableStart="@drawable/ic_person"
+                android:drawablePadding="@dimen/padding_ll_std"
+                android:drawableTint="@color/black"
+                android:hint="@string/name"
+                android:inputType="text"
+                android:textColor="@color/black"
+                android:textColorHint="@color/black"
+                android:textSize="@dimen/font_std" />
+
+            <EditText
+                android:id="@+id/et_email"
+                android:layout_width="match_parent"
+                android:layout_height="@dimen/touch_min"
+                android:layout_margin="@dimen/margin_touch_min"
+                android:autofillHints="true"
+                android:background="@color/white"
+                android:drawableStart="@drawable/ic_email"
+                android:drawablePadding="@dimen/padding_ll_std"
+                android:drawableTint="@color/black"
+                android:hint="@string/email"
+                android:inputType="textEmailAddress"
+                android:textColor="@color/black"
+                android:textColorHint="@color/black"
+                android:textSize="@dimen/font_std" />
+
+            <TextView
+                android:id="@+id/tv_alert"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="@dimen/margin_touch_min"
+                android:layout_marginEnd="@dimen/margin_touch_min"
+                android:background="@color/white"
+                android:gravity="center"
+                android:text="@string/wrong"
+                android:textColor="@color/black"
+                android:textSize="@dimen/font_std"
+                android:textStyle="bold"
+                android:visibility="gone" />
+
+            <CheckBox
+                android:id="@+id/cb_online"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_margin="@dimen/margin_touch_min"
+                android:layout_marginTop="@dimen/margin_touch_min"
+                android:layout_marginBottom="@dimen/margin_touch_min"
+                android:buttonTint="@color/black"
+                android:checked="false"
+                android:layoutDirection="rtl"
+                android:text="Nuevos viajes públicos por defecto"
+                android:textColor="@color/black"
+                android:textSize="@dimen/title_20" />
+
+            <TextView
+                android:id="@+id/tv_delete"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginLeft="@dimen/margin_touch_min"
+                android:layout_marginTop="@dimen/margin_touch_min"
+                android:layout_marginBottom="@dimen/margin_touch_min"
+                android:text="ELIMINAR CUENTA"
+                android:textColor="@color/red"
+                android:textSize="18dp"
+                android:textStyle="bold" />
+
+            <Button
+                android:id="@+id/btn_passw"
+                android:layout_width="match_parent"
+                android:layout_height="@dimen/touch_btn"
+                android:layout_margin="@dimen/margin_touch_min"
+                android:layout_marginBottom="@dimen/margin_touch_min"
+                android:background="@drawable/bt_rounded_corner"
+                android:gravity="center"
+                android:paddingBottom="5dp"
+                android:text="@string/change_passw"
+                android:textSize="@dimen/font_std" />
+
+            <Button
+                android:id="@+id/btn_save"
+                android:layout_width="match_parent"
+                android:layout_height="@dimen/touch_btn"
+                android:layout_margin="@dimen/margin_touch_min"
+                android:background="@drawable/bt_rounded_corner"
+                android:paddingBottom="5dp"
+                android:text="@string/save"
+                android:textSize="@dimen/title_20" />
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+</FrameLayout>
