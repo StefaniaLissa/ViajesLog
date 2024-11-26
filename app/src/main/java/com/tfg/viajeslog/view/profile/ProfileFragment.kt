@@ -27,16 +27,15 @@ class ProfileFragment : Fragment() {
     private lateinit var iv_imagen: ImageView
 
     override fun onCreateView(
-        inflater: LayoutInflater, container: ViewGroup?,
-        savedInstanceState: Bundle?
+        inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
     ): View? {
-        val view    = inflater.inflate(R.layout.fragment_profile, container, false)
-        tv_name     = view.findViewById(R.id.tv_name)
-        tv_email    = view.findViewById(R.id.tv_email)
-        btn_logout  = view.findViewById(R.id.btn_logout)
-        tv_online   = view.findViewById(R.id.tv_online)
-        iv_edit     = view.findViewById(R.id.iv_edit)
-        iv_imagen   = view.findViewById(R.id.iv_imagen)
+        val view = inflater.inflate(R.layout.fragment_profile, container, false)
+        tv_name = view.findViewById(R.id.tv_name)
+        tv_email = view.findViewById(R.id.tv_email)
+        btn_logout = view.findViewById(R.id.btn_logout)
+        tv_online = view.findViewById(R.id.tv_online)
+        iv_edit = view.findViewById(R.id.iv_edit)
+        iv_imagen = view.findViewById(R.id.iv_imagen)
 
         btn_logout.setOnClickListener {
             FirebaseAuth.getInstance().signOut()
@@ -46,17 +45,15 @@ class ProfileFragment : Fragment() {
 
         iv_edit.setOnClickListener {
             val bundle = Bundle()
-            bundle.putCharSequence( "name",     tv_name.text)
-            bundle.putCharSequence( "email",    tv_email.text)
-            bundle.putBoolean(      "public",   tv_online.isVisible)
-            bundle.putCharSequence( "image",    iv_imagen.contentDescription)
+            bundle.putCharSequence("name", tv_name.text)
+            bundle.putCharSequence("email", tv_email.text)
+            bundle.putBoolean("public", tv_online.isVisible)
+            bundle.putCharSequence("image", iv_imagen.contentDescription)
             val fragmentTransaction = parentFragmentManager.beginTransaction()
             val editProfileFragment = EditProfileFragment()
             editProfileFragment.arguments = bundle
-            fragmentTransaction
-                .add(R.id.fragment_container, editProfileFragment)
-                .addToBackStack(null)
-                .commit()
+            fragmentTransaction.add(R.id.fragment_container, editProfileFragment)
+                .addToBackStack(null).commit()
         }
         return view
     }
@@ -65,13 +62,11 @@ class ProfileFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
         viewModel = ViewModelProvider(this)[UserViewModel::class.java]
         viewModel.user.observe(viewLifecycleOwner) {
-            iv_imagen.contentDescription = it.image
-            Glide.with(this)
-                .load(it.image)
-                .placeholder(R.drawable.ic_downloading)
-                .error(R.drawable.ic_error)
-                .centerCrop()
-                .into(iv_imagen)
+            if (it.image != null) {
+                iv_imagen.contentDescription = it.image
+                Glide.with(this).load(it.image).placeholder(R.drawable.ic_downloading)
+                    .error(R.drawable.ic_error).centerCrop().into(iv_imagen)
+            }
             tv_name.text = it.name
             tv_email.text = it.email
             if (it.public == false) {

@@ -21,6 +21,12 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.ViajesLog">
         <activity
+            android:name=".view.stop.PostStopActivity"
+            android:exported="false" />
+        <activity
+            android:name=".view.trip.MediumActivity"
+            android:exported="false" />
+        <activity
             android:name=".view.trip.CreateFromImgActivity"
             android:exported="false" />
         <activity

@@ -1,5 +1,8 @@
 package com.tfg.viajeslog.view.stop
 
+import android.Manifest
+import android.app.DatePickerDialog
+import android.app.TimePickerDialog
 import android.content.ContentValues
 import android.content.Intent
 import android.content.pm.ApplicationInfo
@@ -17,6 +20,7 @@ import androidx.activity.result.ActivityResult
 import androidx.activity.result.ActivityResultCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
 import androidx.core.view.isVisible
 import androidx.lifecycle.Observer
@@ -46,8 +50,10 @@ import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.GeoPoint
 import com.google.firebase.storage.FirebaseStorage
+import com.tfg.viajeslog.model.data.Trip
 import java.text.SimpleDateFormat
 import java.util.Calendar
+import java.util.Date
 import java.util.Locale
 
 class EditStopActivity : AppCompatActivity(), OnMapReadyCallback {
@@ -139,6 +145,73 @@ class EditStopActivity : AppCompatActivity(), OnMapReadyCallback {
         })
 
 
+        //Fecha
+        tv_date.setOnClickListener {
+            val datePickerDialog = DatePickerDialog(
+                this,
+                R.style.CustomDatePickerTheme,
+                { DatePicker, year: Int, monthOfYear: Int, dayOfMonth: Int ->
+                    // Set the selected date using the values received from the DatePicker dialog
+                    calendar.set(year, monthOfYear, dayOfMonth)
+                    // Format the selected date into a string
+                    val formattedDate =
+                        SimpleDateFormat("dd 'de' MMMM 'de' yyyy", Locale.getDefault()).format(
+                            calendar.time
+                        )
+                    // Update the TextView to display the selected date with the "Selected Date: " prefix
+                    tv_date.text = formattedDate
+                    timestamp_fb = Timestamp(calendar.time)
+                },
+                calendar.get(Calendar.YEAR),
+                calendar.get(Calendar.MONTH),
+                calendar.get(Calendar.DAY_OF_MONTH)
+            )
+            datePickerDialog.show()
+        }
+
+        //Hora
+        val timePickerDialog = TimePickerDialog.OnTimeSetListener { timePicker, hour, minute ->
+            calendar.set(Calendar.HOUR_OF_DAY, hour)
+            calendar.set(Calendar.MINUTE, minute)
+            tv_time.text = SimpleDateFormat("HH:mm").format(calendar.time)
+            timestamp_fb = Timestamp(calendar.time) // Asignar el timestamp_fb después de seleccionar la hora
+        }
+
+        tv_time.setOnClickListener {
+            TimePickerDialog(
+                this,
+                R.style.CustomTimePickerTheme, // Apply the custom theme
+                timePickerDialog,
+                calendar.get(Calendar.HOUR_OF_DAY),
+                calendar.get(Calendar.MINUTE),
+                true
+            ).show()
+            timestamp_fb = Timestamp(calendar.time)
+        }
+
+        //Images
+        btn_gallery.setOnClickListener {
+            if (ContextCompat.checkSelfPermission(
+                    applicationContext, Manifest.permission.READ_EXTERNAL_STORAGE
+                ) == PackageManager.PERMISSION_GRANTED
+            ) {
+                openGallery()
+            } else {
+                galleryPermission.launch(Manifest.permission.READ_EXTERNAL_STORAGE)
+            }
+        }
+        btn_camera.setOnClickListener {
+            if (ContextCompat.checkSelfPermission(
+                    applicationContext, Manifest.permission.CAMERA
+                ) == PackageManager.PERMISSION_GRANTED
+            ) {
+                openCamera()
+            } else {
+                cameraPermission.launch(Manifest.permission.CAMERA)
+            }
+        }
+
+
         //Guardar
         fab_done.setOnClickListener {
             val stop = hashMapOf(
@@ -185,18 +258,64 @@ class EditStopActivity : AppCompatActivity(), OnMapReadyCallback {
                             }
                         }
                     }
-                    //Fecha de Inicio del Viaje Portada
-                    initDate = db.collection("trips").document(tripID)
-                        .get().result.get("initDate") as Timestamp
+//                    //Fecha de Inicio del Viaje Portada
+//                    initDate = db.collection("trips").document(tripID)
+//                        .get().result.get("initDate") as Timestamp
+//
+//                    if ((initDate!! > timestamp_fb) or
+//                        (initDate == null)
+//                    ) {
+//                        db.collection("trips")
+//                            .document(tripID).update("initDate", timestamp_fb).addOnFailureListener { e ->
+//                                Toast.makeText(
+//                                    applicationContext,
+//                                    "No se actualizó la fecha de inicio: ${e.message}",
+//                                    Toast.LENGTH_SHORT
+//                                ).show()
+//                            }
+//                    }
+                    // Actualizar las fechas del viaje (initDate, endDate, duración)
+                    db.collection("trips").document(tripID).get().addOnSuccessListener { document ->
+                        val trip = document.toObject(Trip::class.java)
+                        val currentInitDate = trip?.initDate ?: Timestamp(Date(9999, 12, 31))
+                        val currentEndDate = trip?.endDate ?: Timestamp(Date(0, 1, 1))
 
-                    if ((initDate!! > timestamp_fb) or
-                        (initDate == null)
-                    ) {
-                        db.collection("trips")
-                            .document(tripID).update("initDate", timestamp_fb).addOnFailureListener { e ->
+                        var newInitDate = currentInitDate
+                        var newEndDate = currentEndDate
+
+                        // Comparar y actualizar initDate y endDate
+                        if (timestamp_fb.toDate().before(currentInitDate.toDate())) {
+                            newInitDate = timestamp_fb
+                        }
+                        if (timestamp_fb.toDate().after(currentEndDate.toDate())) {
+                            newEndDate = timestamp_fb
+                        }
+
+                        // Calcular duración en días
+                        val durationInDays = (
+                                (newEndDate.seconds - newInitDate.seconds) / (60 * 60 * 24)
+                                ).toInt()
+
+                        // Actualizar en la base de datos
+                        db.collection("trips").document(tripID)
+                            .update(
+                                mapOf(
+                                    "initDate" to newInitDate,
+                                    "endDate" to newEndDate,
+                                    "duration" to durationInDays
+                                )
+                            )
+                            .addOnSuccessListener {
                                 Toast.makeText(
                                     applicationContext,
-                                    "No se actualizó la fecha de inicio: ${e.message}",
+                                    "Fechas y duración actualizadas",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                            .addOnFailureListener { ex ->
+                                Toast.makeText(
+                                    applicationContext,
+                                    "Error al actualizar fechas: ${ex.message}",
                                     Toast.LENGTH_SHORT
                                 ).show()
                             }
@@ -223,7 +342,7 @@ class EditStopActivity : AppCompatActivity(), OnMapReadyCallback {
         //Get Stop
         stopViewModel = ViewModelProvider(this).get(StopViewModel::class.java)
         stopViewModel.loadStop(tripID, stopID)
-        stopViewModel.stop.observe(this, Observer {
+        stopViewModel.stop.observe(this) {
             if (it != null) {
                 stop = it
 
@@ -231,7 +350,7 @@ class EditStopActivity : AppCompatActivity(), OnMapReadyCallback {
                     placeFragment!!.setText(stop.namePlace)
                 }
             }
-        })
+        }
 
         et_name = findViewById(R.id.et_name)
         et_description = findViewById(R.id.et_description)

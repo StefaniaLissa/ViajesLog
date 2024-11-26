@@ -37,5 +37,58 @@
         <item name="android:background">@color/yellow</item>
         <item name="backgroundTint">@color/yellow</item>
     </style>
+    <style name="CustomDatePickerTheme" parent="Theme.MaterialComponents.Light.Dialog">
+        <!-- Background color -->
+        <item name="colorBackgroundFloating">@color/yellow</item>
+        <item name="colorSurface">@color/yellow</item>
 
+        <!-- Text colors -->
+        <item name="colorOnSurface">@color/black</item>
+        <item name="android:textColorPrimary">@color/black</item>
+        <item name="android:textColorSecondary">@color/black</item>
+
+        <!-- Selected date color -->
+        <item name="colorPrimary">@color/green</item>
+        <item name="colorAccent">@color/green</item>
+        <item name="colorControlActivated">@color/green</item>
+    </style>
+
+    <style name="CustomTimePickerTheme" parent="Theme.MaterialComponents.Light.Dialog">
+        <!-- Background color -->
+        <item name="colorBackgroundFloating">@color/yellow</item>
+        <item name="colorSurface">@color/yellow</item>
+
+        <!-- Text colors -->
+        <item name="colorOnSurface">@color/black</item>
+        <item name="android:textColorPrimary">@color/black</item>
+        <item name="android:textColorSecondary">@color/black</item>
+
+        <!-- Selected time color -->
+        <item name="colorPrimary">@color/green</item>
+        <item name="colorAccent">@color/green</item>
+        <item name="colorControlActivated">@color/green</item>
+    </style>
+    <style name="PasswordCustomDialogTheme" parent="Theme.AppCompat.Dialog.Alert">
+        <!-- Set background color -->
+        <item name="backgroundColor">@color/yellow</item>
+
+        <!-- Customize title text -->
+        <item name="android:textColorPrimary">@color/black</item>
+        <item name="android:windowBackground">@color/yellow</item>
+
+        <!-- Customize button text -->
+        <item name="android:buttonBarPositiveButtonStyle">@style/DialogButton</item>
+        <item name="android:buttonBarNegativeButtonStyle">@style/DialogButton</item>
+
+        <!-- Customize text in dialog -->
+        <item name="android:textColor">@color/black</item>
+    </style>
+
+    <style name="DialogButton" parent="Widget.AppCompat.Button.ButtonBar.AlertDialog">
+        <item name="android:textColor">@color/green</item>
+    </style>
+    <style name="CustomEditTextStyle" parent="Widget.AppCompat.EditText">
+        <item name="android:textColor">@android:color/white</item>
+        <item name="hintTextColor">@color/gray</item>
+    </style>
 </resources>

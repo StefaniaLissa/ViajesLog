@@ -18,13 +18,12 @@
         android:layout_height="wrap_content"
         android:layout_gravity="bottom|right"
         android:layout_margin="16dp"
-        android:backgroundTint="@color/yellow"
+        android:backgroundTint="@android:color/transparent"
         android:backgroundTintMode="add"
-        android:outlineAmbientShadowColor="@android:color/transparent"
-        android:outlineSpotShadowColor="@android:color/transparent"
+        android:outlineAmbientShadowColor="@color/black"
+        android:outlineSpotShadowColor="@color/black"
         android:src="@drawable/btn_round_add"
         app:backgroundTint="@android:color/transparent"
+        app:borderWidth="5dp"
         app:shapeAppearanceOverlay="@style/fab_square2" />
-
-
 </FrameLayout>

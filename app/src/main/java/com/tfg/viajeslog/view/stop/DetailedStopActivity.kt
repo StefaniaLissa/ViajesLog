@@ -7,6 +7,7 @@ import android.view.Menu
 import android.view.MenuItem
 import android.view.View
 import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.widget.Toolbar
 import androidx.lifecycle.Observer
 import androidx.lifecycle.ViewModelProvider
@@ -24,7 +25,9 @@ import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.LatLngBounds
 import com.google.android.gms.maps.model.MarkerOptions
+import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FirebaseFirestore
+import com.tfg.viajeslog.model.data.Trip
 import java.util.Calendar
 import java.util.Date
 
@@ -41,7 +44,7 @@ class DetailedStopActivity : AppCompatActivity(), OnMapReadyCallback {
     private lateinit var tv_address: TextView
     private lateinit var tv_notes: TextView
     private lateinit var rv_images: RecyclerView
-//    private lateinit var iv_image: ImageView
+    private lateinit var timestampFb: Timestamp
     private lateinit var tv_name: TextView
 
     private lateinit var toolbar: Toolbar
@@ -63,15 +66,23 @@ class DetailedStopActivity : AppCompatActivity(), OnMapReadyCallback {
 
                 var calendar = Calendar.getInstance()
                 calendar.time = Date(it.timestamp!!.seconds * 1000)
+                timestampFb = it.timestamp!!
 
-                tv_date.text =  String.format("%02d", calendar.get(Calendar.DAY_OF_MONTH)) + "/" +
-                        String.format("%02d", calendar.get(Calendar.MONTH)) + "/" +
-                        calendar.get(Calendar.YEAR).toString()
 
-                tv_time.text =  String.format("%02d", calendar.get(Calendar.HOUR_OF_DAY)) + ":" +
-                        String.format("%02d", calendar.get(Calendar.MINUTE))
+                tv_date.text = String.format(
+                    "%02d",
+                    calendar.get(Calendar.DAY_OF_MONTH)
+                ) + "/" + String.format("%02d", calendar.get(Calendar.MONTH)) + "/" + calendar.get(
+                    Calendar.YEAR
+                ).toString()
 
-                if (it.namePlace.toString().isNotBlank()){
+                tv_time.text =
+                    String.format("%02d", calendar.get(Calendar.HOUR_OF_DAY)) + ":" + String.format(
+                        "%02d",
+                        calendar.get(Calendar.MINUTE)
+                    )
+
+                if (it.namePlace.toString().isNotBlank()) {
                     tv_place.text = it.namePlace.toString()
                 } else {
                     tv_place.visibility = View.GONE
@@ -127,8 +138,10 @@ class DetailedStopActivity : AppCompatActivity(), OnMapReadyCallback {
     private fun setupMap() {
         if (stop != null) {
             latLng = LatLng(stop!!.geoPoint!!.latitude, stop!!.geoPoint!!.longitude)
-            mMap.addMarker(MarkerOptions().position(latLng)
-                .icon(BitmapDescriptorFactory.fromResource(R.drawable.marker)))
+            mMap.addMarker(
+                MarkerOptions().position(latLng)
+                    .icon(BitmapDescriptorFactory.fromResource(R.drawable.marker))
+            )
 
             val bld = LatLngBounds.Builder()
             bld.include(latLng)
@@ -144,54 +157,73 @@ class DetailedStopActivity : AppCompatActivity(), OnMapReadyCallback {
                 finish()
                 return true
             }
+
             R.id.delete -> {
                 deleteStop()
             }
+
             R.id.edit -> {
                 editStop()
-            }
-            R.id.share -> {
-                // TODO: Compartir en redes sociales
-                // https://abskmhswri-er.medium.com/android-app-share-multiple-files-to-instagram-be8ed12a652a
-                // https://stackoverflow.com/questions/12952865/how-to-share-text-to-whatsapp-from-my-app
-            }
-            R.id.addImg -> {
-//                addImg()
             }
         }
         return true
     }
 
-//    private fun addImg(){
-//        val fragment = PhotoUploadFragment()
-//        val bundle = Bundle()
-//        bundle.putString("tripID", tripID)
-//        bundle.putString("stopID", stopID)
-//        fragment.arguments = bundle
-//        supportFragmentManager.beginTransaction()
-//            .add(R.id.frame_layout, fragment)
-//            .addToBackStack(null)
-//            .commit()
-//    }
-
-    private fun editStop(){
-        val intent = Intent(this@DetailedStopActivity, EditStopActivity::class.java)
-        intent.putExtra("tripID", tripID)
-        intent.putExtra("stopID", stopID)
-//        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    private fun editStop() {
+        val intent = Intent(this@DetailedStopActivity, PostStopActivity::class.java)
+        intent.putExtra("tripID", tripID) // Pass the trip ID
+        intent.putExtra("stopID", stopID) // Pass the stop ID to identify the stop
+        intent.putExtra("isEditMode", true) // Indicate that this is the edit mode
         startActivity(intent)
-        finish()
+        finish() // Finish the current activity if you don't want the user to navigate back to it
     }
 
     private fun deleteStop() {
-        FirebaseFirestore.getInstance()
-            .collection("trips")
-            .document(tripID)
-            .collection("stops")
-            .document(stopID)
-            .delete()
-            .addOnSuccessListener {
+        FirebaseFirestore.getInstance().collection("trips").document(tripID).collection("stops")
+            .document(stopID).delete().addOnSuccessListener {
                 finish()
+            }
+
+        // Actualizar las fechas del viaje (initDate, endDate, duración)
+        FirebaseFirestore.getInstance().collection("trips").document(tripID).get()
+            .addOnSuccessListener { document ->
+                val trip = document.toObject(Trip::class.java)
+                val currentInitDate = trip?.initDate ?: Timestamp(Date(9999, 12, 31))
+                val currentEndDate = trip?.endDate ?: Timestamp(Date(0, 1, 1))
+
+                var newInitDate = currentInitDate
+                var newEndDate = currentEndDate
+
+                // Comparar y actualizar initDate y endDate
+                if (timestampFb.toDate().before(currentInitDate.toDate())) {
+                    newInitDate = timestampFb
+                }
+                if (timestampFb.toDate().after(currentEndDate.toDate())) {
+                    newEndDate = timestampFb
+                }
+
+                // Calcular duración en días
+                val durationInDays =
+                    ((newEndDate.seconds - newInitDate.seconds) / (60 * 60 * 24)).toInt()
+
+                // Actualizar en la base de datos
+                FirebaseFirestore.getInstance().collection("trips").document(tripID).update(
+                        mapOf(
+                            "initDate" to newInitDate,
+                            "endDate" to newEndDate,
+                            "duration" to durationInDays
+                        )
+                    ).addOnSuccessListener {
+                        Toast.makeText(
+                            applicationContext, "Fechas y duración actualizadas", Toast.LENGTH_SHORT
+                        ).show()
+                    }.addOnFailureListener { ex ->
+                        Toast.makeText(
+                            applicationContext,
+                            "Error al actualizar fechas: ${ex.message}",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
             }
     }
 
@@ -213,7 +245,6 @@ class DetailedStopActivity : AppCompatActivity(), OnMapReadyCallback {
         tv_address = findViewById(R.id.tvAddress)
         tv_notes = findViewById(R.id.tv_notes)
         rv_images = findViewById(R.id.rv_images)
-//        iv_image = findViewById(R.id.ivImage)
         tv_name = findViewById(R.id.tvName)
 
         toolbar = findViewById(R.id.tb_stop)

@@ -39,6 +39,7 @@ import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.GeoPoint
 import com.google.firebase.storage.FirebaseStorage
+import com.tfg.viajeslog.model.data.Trip
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -54,7 +55,7 @@ class CreateStopActivity : AppCompatActivity() {
     private lateinit var rv_images: RecyclerView
     private lateinit var tv_date: TextView
     private var calendar = Calendar.getInstance()
-    private lateinit var initDate: Date
+    private lateinit var initDate: Timestamp
     private lateinit var tv_time: TextView
     private lateinit var timestamp_fb: Timestamp
     private lateinit var ll_alert: LinearLayout
@@ -83,22 +84,20 @@ class CreateStopActivity : AppCompatActivity() {
         //Get Trip Intent
         val id = intent.getStringExtra("trip").toString()
 
-        val initDateString = intent.getStringExtra("initDate")
-        initDate = if (initDateString != null && initDateString != "null") {
-            val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
-            val date = Date(initDateString)
-            dateFormat.parse(date.toString())!!
-        } else {
-            calendar.set(9999, 12, 31)
-            calendar.time
-        }
+//        val initDateString = intent.getStringExtra("initDate")
+//        initDate = if (initDateString != null && initDateString != "null") {
+//            val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
+//            val date = Date(initDateString)
+//            dateFormat.parse(date.toString())!!
+//        } else {
+//            calendar.set(9999, 12, 31)
+//            calendar.time
+//        }
 
         // Recuperar API KEY
-        val ai: ApplicationInfo? = applicationContext.packageManager
-            ?.getApplicationInfo(
-                applicationContext.packageName,
-                PackageManager.GET_META_DATA
-            )
+        val ai: ApplicationInfo? = applicationContext.packageManager?.getApplicationInfo(
+            applicationContext.packageName, PackageManager.GET_META_DATA
+        )
         val apiKey = ai?.metaData?.getString("com.google.android.geo.API_KEY").toString()
 
         if (!Places.isInitialized()) {
@@ -129,8 +128,7 @@ class CreateStopActivity : AppCompatActivity() {
             }
 
             override fun onError(status: Status) {
-                Toast.makeText(applicationContext, "Some error occurred", Toast.LENGTH_SHORT)
-                    .show()
+                Toast.makeText(applicationContext, "Some error occurred", Toast.LENGTH_SHORT).show()
             }
 
         })
@@ -138,7 +136,9 @@ class CreateStopActivity : AppCompatActivity() {
         //Fecha
         tv_date.setOnClickListener {
             val datePickerDialog = DatePickerDialog(
-                this, { DatePicker, year: Int, monthOfYear: Int, dayOfMonth: Int ->
+                this,
+                R.style.CustomDatePickerTheme,
+                { DatePicker, year: Int, monthOfYear: Int, dayOfMonth: Int ->
                     // Set the selected date using the values received from the DatePicker dialog
                     calendar.set(year, monthOfYear, dayOfMonth)
                     // Format the selected date into a string
@@ -148,13 +148,13 @@ class CreateStopActivity : AppCompatActivity() {
                         )
                     // Update the TextView to display the selected date with the "Selected Date: " prefix
                     tv_date.text = formattedDate
+                    timestamp_fb = Timestamp(calendar.time)
                 },
                 calendar.get(Calendar.YEAR),
                 calendar.get(Calendar.MONTH),
                 calendar.get(Calendar.DAY_OF_MONTH)
             )
             datePickerDialog.show()
-            timestamp_fb = Timestamp(calendar.time)
         }
 
         //Hora
@@ -162,11 +162,13 @@ class CreateStopActivity : AppCompatActivity() {
             calendar.set(Calendar.HOUR_OF_DAY, hour)
             calendar.set(Calendar.MINUTE, minute)
             tv_time.text = SimpleDateFormat("HH:mm").format(calendar.time)
+            timestamp_fb = Timestamp(calendar.time) // Asignar el timestamp_fb después de seleccionar la hora
         }
 
         tv_time.setOnClickListener {
             TimePickerDialog(
                 this,
+                R.style.CustomTimePickerTheme, // Apply the custom theme
                 timePickerDialog,
                 calendar.get(Calendar.HOUR_OF_DAY),
                 calendar.get(Calendar.MINUTE),
@@ -178,8 +180,7 @@ class CreateStopActivity : AppCompatActivity() {
         //Images
         btn_gallery.setOnClickListener {
             if (ContextCompat.checkSelfPermission(
-                    applicationContext,
-                    Manifest.permission.READ_EXTERNAL_STORAGE
+                    applicationContext, Manifest.permission.READ_EXTERNAL_STORAGE
                 ) == PackageManager.PERMISSION_GRANTED
             ) {
                 openGallery()
@@ -189,8 +190,7 @@ class CreateStopActivity : AppCompatActivity() {
         }
         btn_camera.setOnClickListener {
             if (ContextCompat.checkSelfPermission(
-                    applicationContext,
-                    Manifest.permission.CAMERA
+                    applicationContext, Manifest.permission.CAMERA
                 ) == PackageManager.PERMISSION_GRANTED
             ) {
                 openCamera()
@@ -213,15 +213,10 @@ class CreateStopActivity : AppCompatActivity() {
             )
 
             // Agregar a la colección con nuevo ID
-            db.collection("trips")
-                .document(id)
-                .collection("stops")
-                .add(stop)
+            db.collection("trips").document(id).collection("stops").add(stop)
                 .addOnSuccessListener { documentReference ->
                     Toast.makeText(
-                        applicationContext,
-                        "Se ha registrado con éxito",
-                        Toast.LENGTH_SHORT
+                        applicationContext, "Se ha registrado con éxito", Toast.LENGTH_SHORT
                     ).show()
                     //Subir a Storage
                     for (uri in imagesList) {
@@ -244,23 +239,77 @@ class CreateStopActivity : AppCompatActivity() {
                         }
 
                     }
-                    //Fecha de Inicio del Viaje Portada
-                    if ((initDate > timestamp_fb.toDate())
-                    ) {
-                        db.collection("trips")
-                            .document(id).update("initDate", timestamp_fb)
+
+//                    //Fecha de Inicio del Viaje Portada
+//                    val calendar = Calendar.getInstance()
+//                    calendar.set(9999, Calendar.DECEMBER, 31, 23, 59, 59) // Año 9999, último día
+//                    calendar.set(Calendar.MILLISECOND, 999) // Último milisegundo
+//                    val endDate = Timestamp(calendar.time)
+//                    db.collection("trips").document(id).get().addOnCompleteListener {
+//                        val initDate =
+//                            if (it.result.get("initDate") == null) endDate else it.result.toObject(
+//                                Trip::class.java
+//                            )!!.initDate
+//                        if (initDate!! > Timestamp(calendar.time)) {
+//                            db.collection("trips").document(id).update("initDate", Timestamp(calendar.time))
+//                                .addOnFailureListener { ex ->
+//                                    Toast.makeText(
+//                                        applicationContext,
+//                                        "No se actualizó la fecha de inicio: ${ex.message}",
+//                                        Toast.LENGTH_SHORT
+//                                    ).show()
+//                                }
+//                        }
+//                    }
+
+                    // Actualizar las fechas del viaje (initDate, endDate, duración)
+                    db.collection("trips").document(id).get().addOnSuccessListener { document ->
+                        val trip = document.toObject(Trip::class.java)
+                        val currentInitDate = trip?.initDate ?: Timestamp(Date(9999, 12, 31))
+                        val currentEndDate = trip?.endDate ?: Timestamp(Date(0, 1, 1))
+
+                        var newInitDate = currentInitDate
+                        var newEndDate = currentEndDate
+
+                        // Comparar y actualizar initDate y endDate
+                        if (timestamp_fb.toDate().before(currentInitDate.toDate())) {
+                            newInitDate = timestamp_fb
+                        }
+                        if (timestamp_fb.toDate().after(currentEndDate.toDate())) {
+                            newEndDate = timestamp_fb
+                        }
+
+                        // Calcular duración en días
+                        val durationInDays = (
+                                (newEndDate.seconds - newInitDate.seconds) / (60 * 60 * 24)
+                                ).toInt()
+
+                        // Actualizar en la base de datos
+                        db.collection("trips").document(id)
+                            .update(
+                                mapOf(
+                                    "initDate" to newInitDate,
+                                    "endDate" to newEndDate,
+                                    "duration" to durationInDays
+                                )
+                            )
+                            .addOnSuccessListener {
+                                Toast.makeText(
+                                    applicationContext,
+                                    "Fechas y duración actualizadas",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
                             .addOnFailureListener { ex ->
                                 Toast.makeText(
                                     applicationContext,
-                                    "No se actualizó la fecha de inicio: ${ex.message}",
+                                    "Error al actualizar fechas: ${ex.message}",
                                     Toast.LENGTH_SHORT
                                 ).show()
                             }
                     }
-                }
-                .addOnFailureListener { e ->
-                    Toast.makeText(applicationContext, "${e.message}", Toast.LENGTH_SHORT)
-                        .show()
+
+
                 }
 
             finish()
@@ -272,14 +321,9 @@ class CreateStopActivity : AppCompatActivity() {
         val photo = hashMapOf(
             "url" to url
         )
-        FirebaseFirestore.getInstance()
-            .collection("trips")
-            .document(intent.getStringExtra("trip").toString())
-            .collection("stops")
-            .document(stopID)
-            .collection("photos")
-            .add(photo)
-            .addOnFailureListener { e ->
+        FirebaseFirestore.getInstance().collection("trips")
+            .document(intent.getStringExtra("trip").toString()).collection("stops").document(stopID)
+            .collection("photos").add(photo).addOnFailureListener { e ->
                 Toast.makeText(
                     applicationContext,
                     "No se ha actualizado su imagen debido a: ${e.message}",
@@ -300,8 +344,7 @@ class CreateStopActivity : AppCompatActivity() {
         values.put(MediaStore.Images.Media.TITLE, "Titulo")
         values.put(MediaStore.Images.Media.DESCRIPTION, "Descripcion")
         uri = contentResolver.insert(
-            MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
-            values
+            MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values
         )
 
         val intent = Intent(MediaStore.ACTION_IMAGE_CAPTURE)
@@ -338,32 +381,34 @@ class CreateStopActivity : AppCompatActivity() {
 
         }
 
-    private val galleryActivityResultLauncher = registerForActivityResult(
-        ActivityResultContracts.StartActivityForResult(),
-        ActivityResultCallback<ActivityResult> { result ->
-            if (result.resultCode == RESULT_OK) {
-                val data = result.data
-                uri = data!!.data
-                //iv_cover.setImageURI(uri)
-                if (data.clipData != null) {
-                    for (i in 0 until data.clipData!!.itemCount) {
-                        val imageUri = data.clipData!!.getItemAt(i).uri.toString()
+    private val galleryActivityResultLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult(),
+            ActivityResultCallback<ActivityResult> { result ->
+                if (result.resultCode == RESULT_OK) {
+                    val data = result.data
+                    uri = data!!.data
+                    //iv_cover.setImageURI(uri)
+                    if (data.clipData != null) {
+                        for (i in 0 until data.clipData!!.itemCount) {
+                            val imageUri = data.clipData!!.getItemAt(i).uri.toString()
+                            imagesList.add(imageUri)
+                        }
+                    } else {
+                        val imageUri = data.data.toString()
                         imagesList.add(imageUri)
                     }
+                    sv_images.isVisible = true
+                    adapter.notifyDataSetChanged() // Notify adapter of dataset changes
                 } else {
-                    val imageUri = data.data.toString()
-                    imagesList.add(imageUri)
+                    Toast.makeText(
+                        applicationContext,
+                        "Cancelado por el usuario",
+                        Toast.LENGTH_SHORT
+                    ).show()
+
                 }
-                sv_images.isVisible = true
-                adapter.notifyDataSetChanged() // Notify adapter of dataset changes
-            } else {
-                Toast.makeText(applicationContext, "Cancelado por el usuario", Toast.LENGTH_SHORT)
-                    .show()
 
-            }
-
-        }
-    )
+            })
 
     private val cameraActivityResultLauncher =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -405,15 +450,17 @@ class CreateStopActivity : AppCompatActivity() {
             supportFragmentManager.findFragmentById(R.id.fg_autocomplete) as AutocompleteSupportFragment?
 
         //Personalizando el Fragment de Google Places
-        placeFragment!!.view?.findViewById<EditText>(com.google.android.libraries.places.R.id.places_autocomplete_search_input)?.setTextColor(getResources().getColor(R.color.white))
-        placeFragment!!.view?.findViewById<ImageButton>(com.google.android.libraries.places.R.id.places_autocomplete_search_button)?.setColorFilter(getResources().getColor(R.color.white))
-        placeFragment!!.view?.findViewById<ImageButton>(com.google.android.libraries.places.R.id.places_autocomplete_clear_button)?.setColorFilter(getResources().getColor(R.color.white))
+        placeFragment!!.view?.findViewById<EditText>(com.google.android.libraries.places.R.id.places_autocomplete_search_input)
+            ?.setTextColor(getResources().getColor(R.color.black))
+        placeFragment!!.view?.findViewById<ImageButton>(com.google.android.libraries.places.R.id.places_autocomplete_search_button)
+            ?.setColorFilter(getResources().getColor(R.color.black))
+        placeFragment!!.view?.findViewById<ImageButton>(com.google.android.libraries.places.R.id.places_autocomplete_clear_button)
+            ?.setColorFilter(getResources().getColor(R.color.black))
 
         //Cargar Fecha y Hora actual
         calendar = Calendar.getInstance()
         tv_date.text = SimpleDateFormat(
-            "dd 'de' MMMM 'de' yyyy",
-            Locale.getDefault()
+            "dd 'de' MMMM 'de' yyyy", Locale.getDefault()
         ).format(calendar.timeInMillis)
         tv_time.text = SimpleDateFormat("HH:mm").format(calendar.timeInMillis)
         timestamp_fb = Timestamp(calendar.time)

@@ -8,48 +8,41 @@
     android:padding="@dimen/padding_ll_std"
     tools:context=".view.trip.CreateTripActivity">
 
-
-    <FrameLayout
-        android:id="@+id/frame_layout"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content" />
-
-
     <com.google.android.material.textfield.TextInputLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginVertical="@dimen/margin_touch_min"
         android:background="@color/white"
         android:textColorHint="@color/black"
-        app:boxStrokeWidth="4dp"
-        app:boxStrokeColor="@color/black">
+        app:boxStrokeColor="@color/black"
+        app:boxStrokeWidth="4dp">
 
-    <EditText
-        android:id="@+id/et_name"
-        android:layout_width="match_parent"
-        android:layout_height="@dimen/touch_btn"
-        android:layout_margin="@dimen/margin_touch_min"
-        android:autofillHints="true"
-        android:hint="Nombre del Viaje"
-        android:inputType="text"
-        android:gravity="center"
-        android:textSize="@dimen/font_std"
-        android:textColorHint="@color/black"
-        android:textColor="@color/black"
-        android:backgroundTint="@color/black"
-        android:drawableTint="@color/black"/>
+        <EditText
+            android:id="@+id/et_name"
+            android:layout_width="match_parent"
+            android:layout_height="@dimen/touch_btn"
+            android:layout_margin="@dimen/margin_touch_min"
+            android:autofillHints="true"
+            android:backgroundTint="@color/black"
+            android:drawableTint="@color/black"
+            android:gravity="center"
+            android:hint="Nombre del Viaje"
+            android:inputType="text"
+            android:textColor="@color/black"
+            android:textColorHint="@color/black"
+            android:textSize="@dimen/font_std" />
 
     </com.google.android.material.textfield.TextInputLayout>
 
 
     <com.google.android.material.imageview.ShapeableImageView
         android:id="@+id/iv_cover"
-        app:shapeAppearanceOverlay="@style/fab_square"
         android:layout_width="match_parent"
         android:layout_height="100dp"
         android:layout_margin="@dimen/margin_touch_min"
         android:background="@color/green"
-        android:scaleType="centerCrop" />
+        android:scaleType="centerCrop"
+        app:shapeAppearanceOverlay="@style/fab_square" />
 
     <Button
         android:id="@+id/btn_new_image"
@@ -67,23 +60,23 @@
         android:layout_width="match_parent"
         android:layout_height="@dimen/touch_min"
         android:layout_margin="@dimen/margin_touch_min"
+        android:buttonTint="@color/black"
         android:checked="false"
         android:layoutDirection="rtl"
         android:text="Publicar Viaje"
-        android:textSize="@dimen/font_std"
         android:textColor="@color/black"
-        android:buttonTint="@color/black"/>
+        android:textSize="@dimen/font_std" />
 
     <CheckBox
         android:id="@+id/cb_share"
         android:layout_width="match_parent"
         android:layout_height="@dimen/touch_min"
         android:layout_margin="@dimen/margin_touch_min"
-        android:checked="false"
-        android:textColor="@color/black"
         android:buttonTint="@color/black"
+        android:checked="false"
         android:layoutDirection="rtl"
         android:text="Compartir con otros usuarios"
+        android:textColor="@color/black"
         android:textSize="@dimen/font_std" />
 
     <LinearLayout
@@ -93,16 +86,36 @@
         android:orientation="vertical"
         android:visibility="gone">
 
-        <SearchView
-            android:id="@+id/sv_user"
+        <androidx.appcompat.widget.SearchView
+            android:id="@+id/sv_users"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content" />
+            android:layout_height="wrap_content"
+            android:layout_margin="@dimen/margin_touch_min"
+            android:backgroundTint="@color/white"
+            android:theme="@style/ThemeOverlay.AppCompat.Light"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:queryHint="Buscar usuario por el correo" />
 
-        <LinearLayout
-            android:id="@+id/ll_users"
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rv_users"
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:orientation="vertical"></LinearLayout>
+            android:layout_height="wrap_content"
+            android:layout_margin="@dimen/margin_touch_min"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/sv_users" />
+
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rv_editors"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_margin="@dimen/margin_touch_min"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/rv_users" />
 
     </LinearLayout>
 

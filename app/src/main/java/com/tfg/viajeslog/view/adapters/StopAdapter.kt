@@ -14,6 +14,8 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.Observer
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.bumptech.glide.Glide
+import com.google.firebase.Timestamp
 import com.tfg.viajeslog.R
 import com.tfg.viajeslog.model.data.Stop
 import com.tfg.viajeslog.view.stop.DetailedStopActivity
@@ -53,10 +55,10 @@ class StopAdapter : RecyclerView.Adapter<StopAdapter.StopViewHolder>() {
         //Photos
         if (stop.photos.isNullOrEmpty()) {
             holder.sv_images.visibility = View.GONE
-            holder.sv_images.visibility = View.GONE
+            holder.rv_images.visibility = View.GONE
         } else {
             holder.sv_images.visibility = View.VISIBLE
-            holder.sv_images.visibility = View.VISIBLE
+            holder.rv_images.visibility = View.VISIBLE
             //var layoutManager = GridLayoutManager (holder.rv_images.context,4)
             val layoutManager =
                 LinearLayoutManager(holder.rv_images.context, LinearLayoutManager.HORIZONTAL, false)
@@ -114,29 +116,44 @@ class StopAdapter : RecyclerView.Adapter<StopAdapter.StopViewHolder>() {
         }
 
         holder.bt_delete.setOnClickListener {
+            val db = FirebaseFirestore.getInstance()
+            val tripRef = db.collection("trips").document(tripID)
+            val stopRef = tripRef.collection("stops").document(stop.id!!)
 
-//			editorsViewModel.loadEditors(stop.id.toString())
-//			editorsViewModel.allEditors.observe(
-//				holder.itemView.context as LifecycleOwner,
-//				Observer {
+            // Eliminar la parada
+            stopRef.delete().addOnSuccessListener {
+                // Obtener todas las paradas restantes
+                tripRef.collection("stops").get().addOnSuccessListener { stopsSnapshot ->
+                    if (!stopsSnapshot.isEmpty) {
+                        val stops = stopsSnapshot.documents.mapNotNull { it.toObject(Stop::class.java) }
+                        if (stops.isNotEmpty()) {
+                            // Recalcular initDate y endDate
+                            val newInitDate = stops.minByOrNull { it.timestamp!! }?.timestamp
+                            val newEndDate = stops.maxByOrNull { it.timestamp!! }?.timestamp
 
-            FirebaseFirestore.getInstance()
-                .collection("trips")
-                .document(tripID)
-                .collection("stops")
-                .document(stop.id!!)
-                .delete()
-                .addOnSuccessListener {
-                    StopViewModel().stopsForTrip.observe(
-                        holder.itemView.context as LifecycleOwner,
-                        Observer {
-                            stopArrayList.addAll(it)
+                            // Actualizar los campos en el documento del viaje
+                            tripRef.update(
+                                mapOf(
+                                    "initDate" to newInitDate,
+                                    "endDate" to newEndDate,
+                                    "duration" to calculateDurationDays(newInitDate, newEndDate)
+                                )
+                            )
                         }
-                    );
+                    } else {
+                        // Si no quedan paradas, reiniciar initDate, endDate y durationDays
+                        tripRef.update(
+                            mapOf(
+                                "initDate" to null,
+                                "endDate" to null,
+                                "duration" to 0
+                            )
+                        )
+                    }
                 }
+            }
 
-//				}
-//			)
+            // Actualizar el adaptador de la lista
             stopArrayList.removeAt(position)
             this.notifyDataSetChanged()
         }
@@ -176,5 +193,14 @@ class StopAdapter : RecyclerView.Adapter<StopAdapter.StopViewHolder>() {
 
     fun getStops(): List<Stop> {
         return stopArrayList
+    }
+
+    private fun calculateDurationDays(initDate: Timestamp?, endDate: Timestamp?): Long {
+        return if (initDate != null && endDate != null) {
+            val diffInMillis = endDate.toDate().time - initDate.toDate().time
+            diffInMillis / (1000 * 60 * 60 * 24) // Convertir milisegundos a días
+        } else {
+            0L
+        }
     }
 }

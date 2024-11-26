@@ -10,13 +10,14 @@ import com.tfg.viajeslog.R
 import com.tfg.viajeslog.model.data.User
 import com.google.firebase.firestore.FirebaseFirestore
 
-class UsersAdapter(tripID:String) : RecyclerView.Adapter<UsersAdapter.UsersViewHolder>() {
+class UsersAdapter(tripID: String) : RecyclerView.Adapter<UsersAdapter.UsersViewHolder>() {
 
     private var usersList = ArrayList<User>()
     private val tripID = tripID
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): UsersViewHolder {
-        val itemView = LayoutInflater.from(parent.context).inflate(R.layout.user_item, parent,false)
+        val itemView =
+            LayoutInflater.from(parent.context).inflate(R.layout.user_item, parent, false)
         return UsersAdapter.UsersViewHolder(itemView)
     }
 
@@ -25,36 +26,27 @@ class UsersAdapter(tripID:String) : RecyclerView.Adapter<UsersAdapter.UsersViewH
     }
 
     override fun onBindViewHolder(holder: UsersViewHolder, position: Int) {
-        val editor = usersList[position]
-        holder.email.text = editor.email
+        val user = usersList[position]
+        holder.email.text = user.email
 
         holder.iv_plus.setOnClickListener {
             val member = hashMapOf(
                 "admin" to false,
-                "userID" to editor.id,
-                "tripID" to tripID
-            )
-            FirebaseFirestore.getInstance()
-                .collection("members")
-                .add(member)
+                "userID" to user.id,
+                "tripID" to tripID)
+            FirebaseFirestore.getInstance().collection("members").add(member)
         }
     }
 
-//    fun setFilteredList(userList : List<User>){
-//        this.usersList = usersList
-//        notifyDataSetChanged()
-//    }
-
-    fun updateUsersList(userList : List<User>){
+    fun updateUsersList(userList: List<User>) {
         this.usersList.clear()
         this.usersList.addAll(userList)
         notifyDataSetChanged()
     }
 
-    class UsersViewHolder(itemView: View) :
-        RecyclerView.ViewHolder(itemView){
-        val email : TextView = itemView.findViewById(R.id.tv_email)
-        val iv_plus : ImageView = itemView.findViewById(R.id.iv_plus)
+    class UsersViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+        val email: TextView = itemView.findViewById(R.id.tv_email)
+        val iv_plus: ImageView = itemView.findViewById(R.id.iv_plus)
     }
 
 }

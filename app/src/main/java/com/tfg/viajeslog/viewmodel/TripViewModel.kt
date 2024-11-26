@@ -1,5 +1,6 @@
 package com.tfg.viajeslog.viewmodel
 
+import android.util.Log
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
@@ -37,4 +38,26 @@ class TripViewModel : ViewModel() {
         }
     }
 
+    private val tripRepository = TripRepository()
+    fun getTripsByDuration(minDays: Int, maxDays: Int): LiveData<List<Trip>> {
+        val tripsLiveData = MutableLiveData<List<Trip>>()
+        viewModelScope.launch {
+            val trips = tripRepository.getTripsByDuration(minDays, maxDays)
+            tripsLiveData.postValue(trips)
+        }
+        return tripsLiveData
+    }
+
+    fun getTripsByLocation(lat: Double, lng: Double, radius: Double): LiveData<List<Trip>> {
+        val tripsLiveData = MutableLiveData<List<Trip>>()
+        viewModelScope.launch {
+            try {
+                val trips = tripRepository.getTripsByLocation(lat, lng, radius)
+                tripsLiveData.postValue(trips)
+            } catch (e: Exception) {
+                Log.e("TripViewModel", "Error fetching trips: ${e.message}")
+            }
+        }
+        return tripsLiveData
+    }
 }

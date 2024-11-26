@@ -30,31 +30,27 @@ class EditorAdapter(tripID: String) : RecyclerView.Adapter<EditorAdapter.EditorV
         holder.email.text = editor.email.toString()
 
         holder.iv_plus.setOnClickListener {
-            FirebaseFirestore.getInstance()
-                .collection("members")
+            FirebaseFirestore.getInstance().collection("members")
                 .whereEqualTo("admin", false)
                 .whereEqualTo("userID", editor.id)
-                .whereEqualTo("tripID", tripID)
-                .get()
+                .whereEqualTo("tripID", tripID).
+                get()
                 .addOnSuccessListener {
                     for (doc in it) {
-                        FirebaseFirestore.getInstance()
-                            .collection("members")
-                            .document(doc.id)
+                        FirebaseFirestore.getInstance().collection("members").document(doc.id)
                             .delete()
                     }
                 }
         }
     }
 
-    fun updateEditorsList(userList : List<User>){
+    fun updateEditorsList(userList: List<User>) {
         this.editorsList.clear()
         this.editorsList.addAll(userList)
         notifyDataSetChanged()
     }
 
-    class EditorViewHolder(itemView: View) :
-        RecyclerView.ViewHolder(itemView) {
+    class EditorViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         val email: TextView = itemView.findViewById(R.id.tv_email)
         val iv_plus: ImageView = itemView.findViewById(R.id.iv_delete)
     }

@@ -92,6 +92,7 @@ dependencies {
     implementation(libs.play.services.auth)
     implementation(libs.play.services.maps)
 
+    implementation(libs.firebase.geofire.android.common)
 
     implementation (libs.androidx.lifecycle.viewmodel.ktx)
     implementation (libs.androidx.lifecycle.lifecycle.runtime.ktx)
@@ -104,4 +105,5 @@ dependencies {
     implementation (libs.glide)
     implementation (libs.androidx.exifinterface)
     implementation(kotlin("script-runtime"))
+    implementation(libs.okhttp)
 }

@@ -19,6 +19,7 @@ import android.widget.Button
 import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.ImageView
+import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
@@ -27,6 +28,7 @@ import androidx.activity.result.ActivityResultCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.core.view.marginRight
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.DataSource
 import com.bumptech.glide.load.engine.GlideException
@@ -38,6 +40,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.storage.FirebaseStorage
+import kotlinx.coroutines.tasks.await
 
 class EditProfileFragment : Fragment() {
 
@@ -53,6 +56,8 @@ class EditProfileFragment : Fragment() {
     private lateinit var btn_passw: Button
     private lateinit var pb_img: ProgressBar
     private var lv_public_old: Boolean = true
+    private var oldName: String = ""
+    private lateinit var pb_save: ProgressBar
 
     private var uri: Uri? = null
 
@@ -68,8 +73,7 @@ class EditProfileFragment : Fragment() {
     }
 
     override fun onCreateView(
-        inflater: LayoutInflater, container: ViewGroup?,
-        savedInstanceState: Bundle?
+        inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
     ): View? {
         val view = inflater.inflate(R.layout.fragment_edit_profile, container, false)
         iv_imagen = view.findViewById(R.id.iv_imagen)
@@ -83,43 +87,45 @@ class EditProfileFragment : Fragment() {
         cb_online = view.findViewById(R.id.cb_online)
         btn_passw = view.findViewById(R.id.btn_passw)
         pb_img = view.findViewById(R.id.pb_img)
+        pb_save = view.findViewById(R.id.pb_save)
+
 
         auth = FirebaseAuth.getInstance()
         user = FirebaseAuth.getInstance().currentUser
 
         //Get User Intent
-        pb_img.visibility = View.VISIBLE
-        et_name.setText(arguments?.getString("name").toString())
+        oldName = arguments?.getString("name").toString()
+        et_name.setText(oldName)
         et_email.setText(arguments?.getString("email").toString())
-        Glide.with(this)
-            .load(arguments?.getString("image").toString())
-            .listener(object : RequestListener<Drawable> {
-                override fun onLoadFailed(
-                    e: GlideException?,
-                    model: Any?,
-                    target: Target<Drawable>,
-                    isFirstResource: Boolean
-                ): Boolean {
-                    pb_img.visibility = View.GONE
-                    return false
-                }
 
-                override fun onResourceReady(
-                    resource: Drawable,
-                    model: Any,
-                    target: Target<Drawable>?,
-                    dataSource: DataSource,
-                    isFirstResource: Boolean
-                ): Boolean {
-                    pb_img.visibility = View.GONE
-                    return false
-                }
+        if (arguments?.getString("image") != null) {
+            pb_img.visibility = View.VISIBLE
+            Glide.with(this).load(arguments?.getString("image").toString())
+                .listener(object : RequestListener<Drawable> {
+                    override fun onLoadFailed(
+                        e: GlideException?,
+                        model: Any?,
+                        target: Target<Drawable>,
+                        isFirstResource: Boolean
+                    ): Boolean {
+                        pb_img.visibility = View.GONE
+                        return false
+                    }
 
-            })
-            .placeholder(R.drawable.ic_downloading)
-            .error(R.drawable.ic_error)
-            .centerCrop()
-            .into(iv_imagen)
+                    override fun onResourceReady(
+                        resource: Drawable,
+                        model: Any,
+                        target: Target<Drawable>?,
+                        dataSource: DataSource,
+                        isFirstResource: Boolean
+                    ): Boolean {
+                        pb_img.visibility = View.GONE
+                        return false
+                    }
+
+                }).placeholder(R.drawable.ic_downloading).error(R.drawable.ic_error).centerCrop()
+                .into(iv_imagen)
+        }
         cb_online.isChecked = arguments?.getBoolean("public")!!
         lv_public_old = cb_online.isChecked
         return view
@@ -138,14 +144,15 @@ class EditProfileFragment : Fragment() {
         btn_passw.setOnClickListener {
             val fragmentTransaction = parentFragmentManager.beginTransaction()
             val passwordFragment = PasswordFragment()
-            fragmentTransaction
-                .add(R.id.fragment_container, passwordFragment)
-                .addToBackStack(null)
+            fragmentTransaction.add(R.id.fragment_container, passwordFragment).addToBackStack(null)
                 .commit()
         }
 
         //Save Changes
         btn_save.setOnClickListener {
+            pb_save.visibility = View.VISIBLE
+            btn_save.visibility = View.GONE
+
             //Validations
             val isNewImage =
                 uri != null && uri.toString() != arguments?.getString("image").toString()
@@ -154,19 +161,18 @@ class EditProfileFragment : Fragment() {
                 //Save Image in Firebase Store
                 val path = "UserProfile/" + auth.uid
                 val referenceStorage = FirebaseStorage.getInstance().getReference(path)
-                referenceStorage.putFile(uri!!)
-                    .addOnSuccessListener { task ->
-                        val uriTask: Task<Uri> = task.storage.downloadUrl
-                        while (!uriTask.isSuccessful);
-                        val url = "${uriTask.result}"
-                        UpdateFirestore(url)
-                    }.addOnFailureListener { e ->
-                        Toast.makeText(
-                            context,
-                            "No se ha podido subir la imagen debido a: ${e.message}",
-                            Toast.LENGTH_SHORT
-                        ).show()
-                    }
+                referenceStorage.putFile(uri!!).addOnSuccessListener { task ->
+                    val uriTask: Task<Uri> = task.storage.downloadUrl
+                    while (!uriTask.isSuccessful);
+                    val url = "${uriTask.result}"
+                    UpdateFirestore(url)
+                }.addOnFailureListener { e ->
+                    Toast.makeText(
+                        context,
+                        "No se ha podido subir la imagen debido a: ${e.message}",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
             }
 
             val newEmail = et_email.text.toString()
@@ -174,62 +180,117 @@ class EditProfileFragment : Fragment() {
             val isEmailNew = (newEmail != user!!.email)
             if (isEmailNew) {
                 if (isEmailValid) {
-                    FirebaseAuth.getInstance().currentUser?.updateEmail(newEmail)
-                        ?.addOnSuccessListener {
-                            //Update Firebase
-                            FirebaseFirestore.getInstance().collection("users")
-                                .document(user!!.uid)
-                                .update("email", newEmail)
-                                .addOnFailureListener {
-                                    Toast.makeText(
-                                        context,
-                                        "Error al actualizar el correo electrónico: ${it.message}",
-                                        Toast.LENGTH_SHORT
-                                    ).show()
-                                }
-                        }
-                        ?.addOnFailureListener { e ->
+
+                    val currentEmail = user!!.email
+                    val builder = androidx.appcompat.app.AlertDialog.Builder(
+                        requireContext(), R.style.CustomDialogTheme
+                    )
+                    builder.setTitle("Reautenticación requerida")
+                    builder.setMessage("Por favor, ingrese su contraseña actual para confirmar los cambios.")
+
+                    val input = EditText(requireContext()).apply {
+                        setBackgroundColor(ContextCompat.getColor(requireContext(), R.color.yellow))
+                        setTextColor(ContextCompat.getColor(requireContext(), R.color.black))
+                        setHintTextColor(ContextCompat.getColor(requireContext(), R.color.gray))
+                        hint = "Enter text here"
+                        textAlignment = View.TEXT_ALIGNMENT_CENTER
+                    }
+
+                    input.inputType =
+                        android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
+                    input.hint = "Contraseña actual"
+                    builder.setView(input)
+
+                    builder.setPositiveButton("Confirmar") { dialog, _ ->
+                        val currentPassword = input.text.toString()
+                        val credential = FirebaseAuth.getInstance()
+                            .signInWithEmailAndPassword(currentEmail!!, currentPassword)
+
+                        credential.addOnSuccessListener {
+                            // Proceed to update email
+                            user!!.updateEmail(newEmail).addOnSuccessListener {
+                                // Update in Firestore
+                                FirebaseFirestore.getInstance().collection("users")
+                                    .document(user!!.uid).update("email", newEmail)
+                                    .addOnFailureListener {
+                                        Toast.makeText(
+                                            context,
+                                            "Error al actualizar el correo electrónico: ${it.message}",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                    }
+                                Toast.makeText(
+                                    context, "Correo actualizado con éxito", Toast.LENGTH_SHORT
+                                ).show()
+                            }.addOnFailureListener { e ->
+                                Toast.makeText(
+                                    context,
+                                    "Error al actualizar el correo electrónico: ${e.message}",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                        }.addOnFailureListener { e ->
                             Toast.makeText(
                                 context,
-                                "Error al actualizar el correo electrónico: ${e.message}",
+                                "La reautenticación falló: ${e.message}",
                                 Toast.LENGTH_SHORT
                             ).show()
-                            parentFragmentManager.beginTransaction().remove(this).commit()
+                        }.addOnCompleteListener {
+                            pb_save.visibility = View.GONE
+                            btn_save.visibility = View.VISIBLE
+
                         }
+                    }
+
+                    builder.setNegativeButton("Cancelar") { dialog, _ ->
+                        dialog.dismiss()
+                        pb_save.visibility = View.GONE
+                        btn_save.visibility = View.VISIBLE
+                    }
+
+                    builder.create().show()
+
                 } else {
                     alert(getString(R.string.wrong_email))
+                    pb_save.visibility = View.GONE
+                    btn_save.visibility = View.VISIBLE
                 }
             }
 
             if (cb_online.isChecked != lv_public_old) {
-                FirebaseFirestore.getInstance().collection("users")
-                    .document(user!!.uid)
-                    .update("public", cb_online.isChecked)
+                FirebaseFirestore.getInstance().collection("users").document(user!!.uid)
+                    .update("public", cb_online.isChecked).addOnCompleteListener {
+                        pb_save.visibility = View.GONE
+                        btn_save.visibility = View.VISIBLE
+                    }
+
             }
 
 
             if (et_name.text.toString().trim().isEmpty()) {
                 alert("El nombre no puede estar vacío")
-            } else {
-                FirebaseFirestore.getInstance().collection("users")
-                    .document(user!!.uid)
-                    .update("name", et_name.text.toString().trim())
+            } else if (et_name.text.toString() != oldName) {
+                FirebaseFirestore.getInstance().collection("users").document(user!!.uid)
+                    .update("name", et_name.text.toString().trim()).addOnCompleteListener {
+                        pb_save.visibility = View.GONE
+                        btn_save.visibility = View.VISIBLE
+                    }
             }
 
             parentFragmentManager.beginTransaction().remove(this).commit()
         }
 
         tv_delete.setOnClickListener {
-            val builder = androidx.appcompat.app.AlertDialog.Builder(requireContext(), R.style.CustomDialogTheme)
+            val builder = androidx.appcompat.app.AlertDialog.Builder(
+                requireContext(), R.style.CustomDialogTheme
+            )
             builder.setTitle("Confirmación")
             builder.setMessage("¿Está seguro que quiere eliminar su cuenta? Esta acción no se puede deshacer.")
 
             builder.setPositiveButton("Eliminar") { dialog, _ ->
                 dialog.dismiss()
                 // Proceed to delete the account
-                FirebaseFirestore.getInstance()
-                    .collection("users")
-                    .document(auth.uid!!).delete()
+                FirebaseFirestore.getInstance().collection("users").document(auth.uid!!).delete()
                     .addOnSuccessListener {
                         FirebaseAuth.getInstance().currentUser?.delete()!!
                             .addOnCompleteListener { task ->
@@ -238,8 +299,7 @@ class EditProfileFragment : Fragment() {
                                     parentFragmentManager.beginTransaction().remove(this).commit()
                                 }
                             }
-                    }
-                    .addOnFailureListener { e ->
+                    }.addOnFailureListener { e ->
                         Toast.makeText(
                             context,
                             "No se ha eliminado su cuenta debido a: ${e.message}",
@@ -256,7 +316,9 @@ class EditProfileFragment : Fragment() {
 
 
         iv_delete.setOnClickListener {
-            val builder = androidx.appcompat.app.AlertDialog.Builder(requireContext(), R.style.CustomDialogTheme)
+            val builder = androidx.appcompat.app.AlertDialog.Builder(
+                requireContext(), R.style.CustomDialogTheme
+            )
             builder.setTitle("Confirmación")
             builder.setMessage("¿Está seguro que quiere eliminar su imagen? Esta acción no se puede deshacer.")
 
@@ -266,29 +328,24 @@ class EditProfileFragment : Fragment() {
                 //Delete Image in Firebase Store
                 val path = "UserProfile/" + auth.uid
                 val referenceStorage = FirebaseStorage.getInstance().getReference(path)
-                referenceStorage.delete()
-                    .addOnSuccessListener {
-                        FirebaseFirestore.getInstance()
-                            .collection("users")
-                            .document(auth.uid!!)
-                            .update("image", null)
-                            .addOnFailureListener { e ->
-                                Toast.makeText(
-                                    context,
-                                    "No se ha eliminado su imagen debido a: ${e.message}",
-                                    Toast.LENGTH_SHORT
-                                ).show()
-                            }
-                            .addOnSuccessListener {
-                                iv_imagen.setImageDrawable(null)
-                            }
-                    }.addOnFailureListener { e ->
-                        Toast.makeText(
-                            context,
-                            "No se ha podido eliminar la imagen debido a: ${e.message}",
-                            Toast.LENGTH_SHORT
-                        ).show()
-                    }
+                referenceStorage.delete().addOnSuccessListener {
+                    FirebaseFirestore.getInstance().collection("users").document(auth.uid!!)
+                        .update("image", null).addOnFailureListener { e ->
+                            Toast.makeText(
+                                context,
+                                "No se ha eliminado su imagen debido a: ${e.message}",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }.addOnSuccessListener {
+                            iv_imagen.setImageDrawable(null)
+                        }
+                }.addOnFailureListener { e ->
+                    Toast.makeText(
+                        context,
+                        "No se ha podido eliminar la imagen debido a: ${e.message}",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
             }
             builder.setNegativeButton("Cancelar") { dialog, _ ->
                 dialog.dismiss()
@@ -329,8 +386,7 @@ class EditProfileFragment : Fragment() {
         btn_gallery.setOnClickListener {
             //Toast.makeText(applicationContext, "Abrir galería", Toast.LENGTH_SHORT).show()
             if (ContextCompat.checkSelfPermission(
-                    requireContext(),
-                    Manifest.permission.READ_EXTERNAL_STORAGE
+                    requireContext(), Manifest.permission.READ_EXTERNAL_STORAGE
                 ) == PackageManager.PERMISSION_GRANTED
             ) {
                 openGallery()
@@ -344,8 +400,7 @@ class EditProfileFragment : Fragment() {
         btn_camera.setOnClickListener {
             //Toast.makeText(applicationContext, "Abrir cámara", Toast.LENGTH_SHORT).show()
             if (ContextCompat.checkSelfPermission(
-                    requireContext(),
-                    Manifest.permission.CAMERA
+                    requireContext(), Manifest.permission.CAMERA
                 ) == PackageManager.PERMISSION_GRANTED
             ) {
                 openCamera()
@@ -358,11 +413,8 @@ class EditProfileFragment : Fragment() {
     }
 
     private fun UpdateFirestore(url: String) {
-        FirebaseFirestore.getInstance()
-            .collection("users")
-            .document(auth.uid!!)
-            .update("image", url)
-            .addOnFailureListener { e ->
+        FirebaseFirestore.getInstance().collection("users").document(auth.uid!!)
+            .update("image", url).addOnFailureListener { e ->
                 Toast.makeText(
                     context,
                     "No se ha actualizado su imagen debido a: ${e.message}",
@@ -382,8 +434,7 @@ class EditProfileFragment : Fragment() {
         values.put(MediaStore.Images.Media.TITLE, "Titulo")
         values.put(MediaStore.Images.Media.DESCRIPTION, "Descripcion")
         uri = requireActivity().contentResolver.insert(
-            MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
-            values
+            MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values
         )
 
         val intent = Intent(MediaStore.ACTION_IMAGE_CAPTURE)
@@ -419,38 +470,29 @@ class EditProfileFragment : Fragment() {
 
         }
 
-    private val galleryActivityResultLauncher = registerForActivityResult(
-        ActivityResultContracts.StartActivityForResult(),
-        ActivityResultCallback<ActivityResult> { result ->
-            if (result.resultCode == AppCompatActivity.RESULT_OK) {
-                val data = result.data
-                uri = data!!.data
-                iv_imagen.setImageURI(uri)
-                Glide.with(this)
-                    .load(uri)
-                    .placeholder(R.drawable.ic_downloading)
-                    .error(R.drawable.ic_error)
-                    .centerCrop()
-                    .into(iv_imagen)
-            } else {
-                Toast.makeText(context, "Cancelado por el usuario", Toast.LENGTH_SHORT)
-                    .show()
+    private val galleryActivityResultLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult(),
+            ActivityResultCallback<ActivityResult> { result ->
+                if (result.resultCode == AppCompatActivity.RESULT_OK) {
+                    val data = result.data
+                    uri = data!!.data
+                    iv_imagen.setImageURI(uri)
+                    Glide.with(this).load(uri).placeholder(R.drawable.ic_downloading)
+                        .error(R.drawable.ic_error).centerCrop().into(iv_imagen)
+                } else {
+                    Toast.makeText(context, "Cancelado por el usuario", Toast.LENGTH_SHORT).show()
 
-            }
+                }
 
-        }
-    )
+            })
 
     private val cameraActivityResultLauncher =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
             if (result.resultCode == AppCompatActivity.RESULT_OK) {
                 iv_imagen.setImageURI(uri)
-                Glide.with(this)
-                    .load(uri)
-                    .into(iv_imagen)
+                Glide.with(this).load(uri).into(iv_imagen)
             } else {
-                Toast.makeText(context, "Cancelado por el usuario", Toast.LENGTH_SHORT)
-                    .show()
+                Toast.makeText(context, "Cancelado por el usuario", Toast.LENGTH_SHORT).show()
             }
         }
 

@@ -9,6 +9,7 @@ import android.net.Uri
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.provider.MediaStore
+import android.view.View
 import android.widget.Button
 import android.widget.CheckBox
 import android.widget.EditText
@@ -22,12 +23,20 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
 import androidx.core.view.isVisible
+import androidx.lifecycle.Observer
+import androidx.lifecycle.ViewModelProvider
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.tfg.viajeslog.R
 import com.google.android.gms.tasks.Task
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.storage.FirebaseStorage
+import com.tfg.viajeslog.model.data.User
+import com.tfg.viajeslog.view.adapters.EditorAdapter
+import com.tfg.viajeslog.view.adapters.UsersAdapter
+import com.tfg.viajeslog.viewmodel.UserViewModel
 
 class CreateTripActivity : AppCompatActivity() {
 
@@ -36,8 +45,6 @@ class CreateTripActivity : AppCompatActivity() {
     private lateinit var et_name: EditText
     private lateinit var cb_online: CheckBox
     private lateinit var ll_cb_share: LinearLayout
-    private lateinit var sv_user: SearchView
-    private lateinit var ll_users: LinearLayout
     private lateinit var cb_share: CheckBox
     private lateinit var btn_create: Button
     private lateinit var db: FirebaseFirestore
@@ -46,105 +53,87 @@ class CreateTripActivity : AppCompatActivity() {
     private lateinit var user: FirebaseUser
     private lateinit var tripId: String
 
-    //private lateinit var photoUpload: PhotosUpload
+    private val selectedEditors = mutableListOf<User>() // Dummy list for selected editors
 
 // TODO: Compartimentar con clase photoUpload
-//    private val photoUpload by lazy { PhotosUpload(this, tripId, "") }
+//    private val photoUpload { PhotosUpload(this, tripId, "") }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_create_trip)
         init()
 
-//        //Crear Trip Vacío
-//        val trip = hashMapOf(
-//            "name" to "",
-//            "public" to ""
-//        )
-//        db.collection("trips").add(trip).addOnSuccessListener {
-//            tripId = it.id
-//        }
-
         //Cambiar imagen
-//        btn_new_image.setOnClickListener {
-////            CameraOrGalleryDialog()
-//            val fragment = PhotoUploadFragment()
-//            val bundle = Bundle()
-//            bundle.putString("tripID", tripId)
-//            bundle.putString("stopID", "")
-//            fragment.arguments = bundle
-//            supportFragmentManager.beginTransaction()
-//                .add(R.id.frame_layout, fragment)
-//                .addToBackStack(null)
-//                .commit()
-//        }
+        btn_new_image.setOnClickListener { CameraOrGalleryDialog() }
+        iv_cover.setOnClickListener { CameraOrGalleryDialog() }
 
-        //Cambiar imagen
-        btn_new_image.setOnClickListener {
-            CameraOrGalleryDialog()
-        }
-        iv_cover.setOnClickListener {
-            CameraOrGalleryDialog()
-        }
-
-        // Compartir
-        cb_share.setOnCheckedChangeListener { compoundButton, b ->
-            if (b == true) {
-                ll_cb_share.isVisible = true
-            }
-        }
-// Crear
+        // Handle trip creation
         btn_create.setOnClickListener {
-            val trip = hashMapOf(
-                "name" to et_name.text.toString(), "public" to cb_online.isChecked
+            createTrip()
+        }
+
+    }
+
+    private fun createTrip() {
+        val trip = hashMapOf(
+            "name" to et_name.text.toString(), "public" to cb_online.isChecked
+        )
+
+        // Agregar a la colección con nuevo ID
+        db.collection("trips").add(trip).addOnSuccessListener { documentReference ->
+            Toast.makeText(
+                applicationContext, "Se ha registrado con éxito", Toast.LENGTH_SHORT
+            ).show()
+
+            tripId = documentReference.id
+
+            // Agregar usuario actual como admin
+            val member = hashMapOf(
+                "admin" to true, "tripID" to documentReference.id, "userID" to user.uid
             )
-            // Agregar a la colección con nuevo ID
-            db.collection("trips").add(trip).addOnSuccessListener { documentReference ->
-                Toast.makeText(
-                    applicationContext, "Se ha registrado con éxito", Toast.LENGTH_SHORT
-                ).show()
-                // Agregar a Members
-                val member = hashMapOf(
-                    "admin" to true, "tripID" to documentReference.id, "userID" to user.uid
-                )
-                db.collection("members").add(member).addOnSuccessListener {
-                    Toast.makeText(
-                        applicationContext, "Se ha agregado con éxito", Toast.LENGTH_SHORT
-                    ).show()
-                }.addOnFailureListener {
-                    Toast.makeText(
-                        applicationContext, "No se ha podido agregar", Toast.LENGTH_SHORT
-                    ).show()
-                }
-                // Guardar Cover
-                if (uriString != null) {
-                    //Save Image in Firebase Store
-                    tripId = documentReference.id
-                    val rutaImagen = "TripCover/" + tripId + "/" + System.currentTimeMillis()
-                    val referenceStorage = FirebaseStorage.getInstance().getReference(rutaImagen)
-                    referenceStorage.putFile(uriString!!.toUri()).addOnSuccessListener { task ->
-                        val uriTask: Task<Uri> = task.storage.downloadUrl
-                        while (!uriTask.isSuccessful);
-                        val url = "${uriTask.result}"
-                        UpdateFirestore(url)
-                    }.addOnFailureListener { e ->
-                        Toast.makeText(
-                            applicationContext,
-                            "No se ha podido subir la imagen debido a: ${e.message}",
-                            Toast.LENGTH_SHORT
-                        ).show()
-                    }
-                }
+            db.collection("members").add(member)
+
+            // Guardar Cover
+            uriString?.let { uploadCoverImage(it) }
+
+            if (cb_share.isChecked) {
+                openShareTripFragment()
+            } else {
+                // Directly go to DetailedTripActivity if no sharing is required
                 val intent = Intent(this@CreateTripActivity, DetailedTripActivity::class.java)
                 intent.putExtra("id", tripId)
-                intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 startActivity(intent)
-                finish()
-            }.addOnFailureListener { e ->
-                Toast.makeText(applicationContext, "${e.message}", Toast.LENGTH_SHORT).show()
+                finish() // Close CreateTripActivity
             }
-        }
 
+        }.addOnFailureListener { e ->
+            Toast.makeText(applicationContext, "${e.message}", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun openShareTripFragment() {
+        val intent = Intent(this, MediumActivity::class.java)
+        intent.putExtra("view", "share")
+        intent.putExtra("tripId", tripId)
+        startActivity(intent)
+        finish()
+    }
+
+    private fun uploadCoverImage(imageUri: String) {
+        val rutaImagen = "TripCover/" + tripId + "/" + System.currentTimeMillis()
+        val referenceStorage = FirebaseStorage.getInstance().getReference(rutaImagen)
+        referenceStorage.putFile(imageUri.toUri()).addOnSuccessListener { task ->
+            task.storage.downloadUrl.addOnSuccessListener { uri ->
+                val imageUrl = uri.toString()
+                db.collection("trips").document(tripId).update("image", imageUrl)
+            }
+        }.addOnFailureListener { e ->
+            Toast.makeText(
+                applicationContext,
+                "No se ha podido subir la imagen debido a: ${e.message}",
+                Toast.LENGTH_SHORT
+            ).show()
+        }
     }
 
     private fun CameraOrGalleryDialog() {
@@ -173,34 +162,19 @@ class CreateTripActivity : AppCompatActivity() {
 
         }
 
-//        btn_camera.setOnClickListener {
-//            //Toast.makeText(applicationContext, "Abrir cámara", Toast.LENGTH_SHORT).show()
-//            if (ContextCompat.checkSelfPermission(
-//                    applicationContext,
-//                    Manifest.permission.CAMERA
-//                ) == PackageManager.PERMISSION_GRANTED
-//            ) {
-//                openCamera()
-//                dialog.dismiss()
-//            } else {
-//                cameraPermission.launch(Manifest.permission.CAMERA)
-//            }
-////            photoUpload.uploadTripCover(true)
-//
-//
-//        }
-        dialog.show()
-    }
-
-    private fun UpdateFirestore(url: String) {
-        FirebaseFirestore.getInstance().collection("trips").document(tripId).update("image", url)
-            .addOnFailureListener { e ->
-                Toast.makeText(
-                    applicationContext,
-                    "No se ha actualizado su imagen debido a: ${e.message}",
-                    Toast.LENGTH_SHORT
-                ).show()
+        btn_camera.setOnClickListener {
+            //Toast.makeText(applicationContext, "Abrir cámara", Toast.LENGTH_SHORT).show()
+            if (ContextCompat.checkSelfPermission(
+                    applicationContext, Manifest.permission.CAMERA
+                ) == PackageManager.PERMISSION_GRANTED
+            ) {
+                openCamera()
+                dialog.dismiss()
+            } else {
+                cameraPermission.launch(Manifest.permission.CAMERA)
             }
+        }
+        dialog.show()
     }
 
     private fun openGallery() {
@@ -251,23 +225,23 @@ class CreateTripActivity : AppCompatActivity() {
 
         }
 
-    private val galleryActivityResultLauncher =
-        registerForActivityResult(ActivityResultContracts.StartActivityForResult(),
-            ActivityResultCallback<ActivityResult> { result ->
-                if (result.resultCode == RESULT_OK) {
-                    val data = result.data
-                    uri = data!!.data
-                    uriString = data.clipData!!.getItemAt(0).uri.toString()
-                    iv_cover.setImageURI(uri)
+    private val galleryActivityResultLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == RESULT_OK) {
+            val data = result.data
+            uri = data!!.data
+            uriString = data.clipData!!.getItemAt(0).uri.toString()
+            iv_cover.setImageURI(uri)
 
-                } else {
-                    Toast.makeText(
-                        applicationContext, "Cancelado por el usuario", Toast.LENGTH_SHORT
-                    ).show()
+        } else {
+            Toast.makeText(
+                applicationContext, "Cancelado por el usuario", Toast.LENGTH_SHORT
+            ).show()
 
-                }
+        }
 
-            })
+    }
 
     private val cameraActivityResultLauncher =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -285,36 +259,20 @@ class CreateTripActivity : AppCompatActivity() {
         btn_new_image = findViewById(R.id.btn_new_image)
         et_name = findViewById(R.id.et_name)
         cb_online = findViewById(R.id.cb_online)
-        ll_cb_share = findViewById(R.id.ll_cb_share)
-        sv_user = findViewById(R.id.sv_user)
-        ll_users = findViewById(R.id.ll_users)
         cb_share = findViewById(R.id.cb_share)
         btn_create = findViewById(R.id.btn_create)
         db = FirebaseFirestore.getInstance()
         user = FirebaseAuth.getInstance().currentUser!!
         uriString = String()
+
+        // Fetch user profile to initialize `cb_online`
+        db.collection("users").document(user.uid).get().addOnSuccessListener { document ->
+            if (document.exists()) {
+                val isPublic = document.getBoolean("public") ?: false
+                cb_online.isChecked = isPublic
+            }
+        }
     }
 
-//    override fun onDestroy() {
-//        super.onDestroy()
-//
-//        // Check if the trip is not created (i.e., the name is still empty)
-//        if (et_name.text.isEmpty()) {
-//            // Delete the trip from Firestore
-//            db.collection("trips")
-//                .document(tripId)
-//                .delete()
-//                .addOnSuccessListener {
-//                    Toast.makeText(this, "Unsaved trip deleted", Toast.LENGTH_SHORT).show()
-//                }
-//                .addOnFailureListener { e ->
-//                    Toast.makeText(
-//                        this,
-//                        "Failed to delete unsaved trip: ${e.message}",
-//                        Toast.LENGTH_SHORT
-//                    ).show()
-//                }
-//        }
-//    }
 
 }

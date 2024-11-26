@@ -13,17 +13,19 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.Observer
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
+import com.google.firebase.auth.FirebaseAuth
 import com.tfg.viajeslog.R
 import com.tfg.viajeslog.model.data.Trip
 import com.tfg.viajeslog.view.trip.DetailedTripActivity
 import com.tfg.viajeslog.viewmodel.TripViewModel
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.storage.FirebaseStorage
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-class TripAdapter( ) : RecyclerView.Adapter<TripAdapter.TripViewHolder>() {
-//    private val tripArrayList = ArrayList<Trip>()
+class TripAdapter() : RecyclerView.Adapter<TripAdapter.TripViewHolder>() {
+    //    private val tripArrayList = ArrayList<Trip>()
     private val tripArrayList = mutableListOf<Trip>()
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): TripViewHolder {
@@ -54,13 +56,10 @@ class TripAdapter( ) : RecyclerView.Adapter<TripAdapter.TripViewHolder>() {
             holder.place.visibility = View.GONE
         }
 
-        if(trip.image != null) {
+        if (trip.image != null) {
             // Imagen Cover del Viaje
-            Glide.with(holder.itemView.context)
-                .load(trip.image)
-                .placeholder(R.drawable.ic_downloading)
-                .error(R.drawable.ic_error)
-                .centerCrop()
+            Glide.with(holder.itemView.context).load(trip.image)
+                .placeholder(R.drawable.ic_downloading).error(R.drawable.ic_error).centerCrop()
                 .into(holder.image)
         }
 
@@ -83,44 +82,93 @@ class TripAdapter( ) : RecyclerView.Adapter<TripAdapter.TripViewHolder>() {
             true
         }
 
-    holder.bt_delete.setOnClickListener {
-        //TODO: Splash Screen Asignar Admin al borrar
-//        var editorsViewModel: UserViewModel
-//        editorsViewModel = ViewModelProvider(this).get(UserViewModel::class.java)
-//        editorsViewModel.loadEditors(trip.id.toString())
-//        editorsViewModel.allEditors.observe( holder.itemView.context as LifecycleOwner, Observer {
-//
-//                val user = FirebaseAuth.getInstance().currentUser!!
-//                FirebaseFirestore.getInstance()
-//                    .collection("members")
-//                    .whereEqualTo("tripID", trip.id.toString())
-//                    .whereEqualTo("userID", user.uid.toString())
-//                    .get()
-//                    .addOnSuccessListener {
-//                        //Solo será uno
-//                        for (doc in it){
-//                            FirebaseFirestore.getInstance()
-//                                .collection("members")
-//                                .document(doc.id)
-//                                .delete()
-//                        }
-//                    }
+        holder.bt_delete.setOnClickListener {
+            val tripId = trip.id!!
+            val currentUserId = FirebaseAuth.getInstance().currentUser?.uid
+            val db = FirebaseFirestore.getInstance()
 
-                FirebaseFirestore.getInstance()
-                    .collection("trips")
-                    .document(trip.id!!)
-                    .delete()
-                    .addOnSuccessListener {
-                        TripViewModel().allTrips.observe( holder.itemView.context as LifecycleOwner, Observer {
-                            tripArrayList.addAll(it)
-                        });
+            // Verificar si el usuario actual es administrador
+            db.collection("trips").document(tripId).get().addOnSuccessListener { document ->
+                    if (document.exists()) {
+                        val adminId =
+                            document.getString("admin") // Asegúrate de que el campo "admin" contenga el UID del administrador
+                        if (currentUserId == adminId) {
+                            // Usuario es administrador: Eliminar todo
+                            deleteTripCompletely(tripId, position)
+                        } else {
+                            // Usuario no es administrador: Solo eliminar de "members"
+                            deleteFromMembers(tripId, currentUserId, position)
+                        }
                     }
+                }.addOnFailureListener { e ->
+                    Log.e("DeleteTrip", "Error al verificar rol: ${e.message}")
+                }
 
-//        })
-        tripArrayList.removeAt(position)
-        this.notifyDataSetChanged()
+
+        }
     }
 
+    private fun deleteFromMembers(tripId: String, userId: String?, position: Int) {
+        val db = FirebaseFirestore.getInstance()
+        if (userId != null) {
+            db.collection("members").whereEqualTo("tripID", tripId).whereEqualTo("userID", userId)
+                .get().addOnSuccessListener { snapshot ->
+                    for (doc in snapshot) {
+                        db.collection("members").document(doc.id).delete()
+                    }
+                    tripArrayList.removeAt(position)
+                    this.notifyDataSetChanged()
+                }.addOnFailureListener { e ->
+                    Log.e("DeleteTrip", "Error al eliminar de members: ${e.message}")
+                }
+        }
+    }
+
+    private fun deleteTripCompletely(tripId: String, position: Int) {
+        val db = FirebaseFirestore.getInstance()
+
+        // 1. Eliminar los documentos relacionados en la colección "members"
+        db.collection("members").whereEqualTo("tripID", tripId).get()
+            .addOnSuccessListener { snapshot ->
+                for (doc in snapshot) {
+                    db.collection("members").document(doc.id).delete()
+                }
+            }
+
+        // 2. Eliminar las imágenes de "TripCover"
+        val storage = FirebaseStorage.getInstance()
+        val tripCoverPath = "TripCover/$tripId/"
+        val tripCoverRef = storage.reference.child(tripCoverPath)
+        tripCoverRef.listAll().addOnSuccessListener { listResult ->
+            for (file in listResult.items) {
+                file.delete() // Eliminar cada archivo en TripCover
+            }
+        }
+
+        // 3. Eliminar las imágenes de "Stop_Image" asociadas a cada parada
+        db.collection("trips").document(tripId).collection("stops").get()
+            .addOnSuccessListener { stopsSnapshot ->
+                for (stopDoc in stopsSnapshot) {
+                    val stopId = stopDoc.id
+                    val stopImagesPath = "Stop_Image/$tripId/$stopId/"
+                    val stopImagesRef = storage.reference.child(stopImagesPath)
+                    stopImagesRef.listAll().addOnSuccessListener { listResult ->
+                        for (file in listResult.items) {
+                            file.delete() // Eliminar cada archivo en Stop_Image
+                        }
+                    }
+                }
+
+                // 4. Eliminar el documento del viaje una vez que las imágenes y "members" se eliminaron
+                db.collection("trips").document(tripId).delete().addOnSuccessListener {
+//                            tripArrayList.removeAt(position)
+//                            this.notifyDataSetChanged()
+                }.addOnFailureListener { e ->
+                    Log.e("DeleteTrip", "Error al eliminar el viaje: ${e.message}")
+                }
+            }.addOnFailureListener { e ->
+                Log.e("DeleteTrip", "Error al cargar las paradas: ${e.message}")
+            }
     }
 
     override fun getItemCount(): Int {
@@ -134,8 +182,7 @@ class TripAdapter( ) : RecyclerView.Adapter<TripAdapter.TripViewHolder>() {
         this.notifyDataSetChanged()
     }
 
-    class TripViewHolder(itemView: View) :
-        RecyclerView.ViewHolder(itemView) {
+    class TripViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         val name: TextView = itemView.findViewById(R.id.tvName)
         val image: ImageView = itemView.findViewById(R.id.ivImage)
         val initDate: TextView = itemView.findViewById(R.id.tvDates)

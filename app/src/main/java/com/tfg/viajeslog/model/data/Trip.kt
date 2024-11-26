@@ -7,5 +7,7 @@ data class Trip(
     var name:String?=null,
     var image:String?=null,
     var initDate:Timestamp?=null,
+    var endDate:Timestamp?=null,
     var globalPlace:String?=null,
+    val duration: Int?=null
 )

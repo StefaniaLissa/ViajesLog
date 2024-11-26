@@ -49,4 +49,9 @@ class UserViewModel : ViewModel() {
             }
         }
     }
+
+
+    fun loadUsersExcludingEditors(tripId: String) {
+        repository.loadUsersExcludingEditors(tripId, _allUsers)
+    }
 }
