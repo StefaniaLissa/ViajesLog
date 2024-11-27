@@ -16,6 +16,7 @@ import com.tfg.viajeslog.R
 import com.tfg.viajeslog.view.login.LoginActivity
 import com.tfg.viajeslog.viewmodel.UserViewModel
 import com.google.firebase.auth.FirebaseAuth
+import okhttp3.internal.notify
 
 class ProfileFragment : Fragment() {
     private lateinit var tv_name: TextView
@@ -55,25 +56,38 @@ class ProfileFragment : Fragment() {
             fragmentTransaction.add(R.id.fragment_container, editProfileFragment)
                 .addToBackStack(null).commit()
         }
+
+        viewModel = ViewModelProvider(this)[UserViewModel::class.java]
+        viewModel.user.observe(viewLifecycleOwner) { user ->
+            if (user == null) {
+                // Handle the case where the user data is null (e.g., show a message or logout)
+                tv_name.text = getString(R.string.user_not_found)
+                tv_email.text = ""
+                tv_online.visibility = View.GONE
+                iv_imagen.setImageResource(R.drawable.ic_error) // Set a default or error image
+                return@observe
+            }
+
+            // Populate the UI with user data
+            if (!user.image.isNullOrEmpty()) {
+                iv_imagen.contentDescription = user.image
+                Glide.with(this).load(user.image).placeholder(R.drawable.ic_downloading)
+                    .error(R.drawable.ic_error).centerCrop().into(iv_imagen)
+            } else {
+                iv_imagen.contentDescription = null
+                iv_imagen.setImageResource(R.drawable.ic_bag) // Set a placeholder image
+            }
+
+            tv_name.text = user.name
+            tv_email.text = user.email
+            tv_online.visibility = if (user.public == true) View.VISIBLE else View.GONE
+        }
+
         return view
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        viewModel = ViewModelProvider(this)[UserViewModel::class.java]
-        viewModel.user.observe(viewLifecycleOwner) {
-            if (it.image != null) {
-                iv_imagen.contentDescription = it.image
-                Glide.with(this).load(it.image).placeholder(R.drawable.ic_downloading)
-                    .error(R.drawable.ic_error).centerCrop().into(iv_imagen)
-            }
-            tv_name.text = it.name
-            tv_email.text = it.email
-            if (it.public == false) {
-                tv_online.visibility = View.GONE
-            } else {
-                tv_online.visibility = View.VISIBLE
-            }
-        }
+
     }
 }

@@ -25,14 +25,10 @@ class ImageAdapter(
             .centerCrop() // Scale image to fill ImageView while maintaining aspect ratio
             .into(holder.image)
 
-        // Mostrar o esconder el botón de eliminar dependiendo del callback
-        if (onImageDelete != null) {
-            holder.btnDelete.visibility = View.VISIBLE
-            holder.btnDelete.setOnClickListener {
-                onImageDelete.invoke(images[position])
-            }
-        } else {
-            holder.btnDelete.visibility = View.GONE
+        // Botón eliminar
+        holder.btnDelete.visibility = if (onImageDelete != null) View.VISIBLE else View.GONE
+        holder.btnDelete.setOnClickListener {
+            onImageDelete?.invoke(images[position]) // Notificar al callback
         }
 
         // Dialogo para mostrar la imagen en pantalla completa

@@ -2,18 +2,17 @@ package com.tfg.viajeslog.view.trip
 
 import android.content.Intent
 import android.os.Bundle
-import android.util.Log
 import android.view.Menu
 import android.view.MenuItem
+import android.view.View
+import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.Toolbar
-import androidx.lifecycle.Observer
 import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.tfg.viajeslog.R
 import com.tfg.viajeslog.view.adapters.StopAdapter
-import com.tfg.viajeslog.view.stop.CreateStopActivity
 import com.tfg.viajeslog.viewmodel.StopViewModel
 import com.tfg.viajeslog.viewmodel.TripViewModel
 import com.google.android.gms.maps.CameraUpdateFactory
@@ -39,8 +38,9 @@ class DetailedTripActivity : AppCompatActivity(), OnMapReadyCallback {
     private lateinit var stopRecyclerView: RecyclerView
     lateinit var stopAdapter: StopAdapter
     private lateinit var mMap: GoogleMap
-    private lateinit var trip: String
+    private lateinit var tripID: String
     private lateinit var initDate: Date
+    private lateinit var tv_no_stop: TextView
 
     private lateinit var coordinates: ArrayList<GeoPoint>
 
@@ -50,21 +50,21 @@ class DetailedTripActivity : AppCompatActivity(), OnMapReadyCallback {
 
         //tv_title = findViewById(R.id.tv_title)
         fab_newStop = findViewById(R.id.fab_newStop)
+        tv_no_stop = findViewById(R.id.tv_no_stop)
         toolbar = findViewById(R.id.toolbar)
 
         //Get Trip Intent
-        trip = intent.getStringExtra("id").toString()
+        tripID = intent.getStringExtra("id").toString()
 
         //Get Trip
         viewModel = ViewModelProvider(this).get(TripViewModel::class.java)
-        viewModel.loadTrip(trip)
-        viewModel.trip.observe(this, Observer {
+        viewModel.loadTrip(tripID)
+        viewModel.trip.observe(this) {
             if (it != null) {
                 toolbar.title = it.name.toString()
                 initDate = it.initDate?.toDate() ?: Date(9999 - 12 - 31)
             }
-            Log.w("BD", "loadTripFragment")
-        })
+        }
 
         setSupportActionBar(toolbar)
 
@@ -80,7 +80,11 @@ class DetailedTripActivity : AppCompatActivity(), OnMapReadyCallback {
         stopRecyclerView.adapter = stopAdapter
 
         stopViewModel = ViewModelProvider(this).get(StopViewModel::class.java)
-        stopViewModel.stopsForTrip.observe(this, Observer {
+        stopViewModel.stopsForTrip.observe(this) {
+            if (it.isEmpty()) {
+                tv_no_stop.visibility = View.VISIBLE
+            } else {
+                tv_no_stop.visibility = View.GONE
             stopAdapter.updateStopList(it)
             coordinates.clear()
             it.forEach {
@@ -95,16 +99,17 @@ class DetailedTripActivity : AppCompatActivity(), OnMapReadyCallback {
                     }
                 }
             }
-            stopAdapter.tripID = trip
+            stopAdapter.tripID = tripID
             setupMap()
-        })
-        stopViewModel.loadStopsForTrip(trip)
-        coordinates = stopViewModel.getCoordinates(trip)!!
+            }
+        }
+        stopViewModel.loadStopsForTrip(tripID)
+        coordinates = stopViewModel.getCoordinates(tripID)!!
 
         //New Stop
         fab_newStop.setOnClickListener {
             val intent = Intent(this, PostStopActivity::class.java)
-            intent.putExtra("tripID", trip) // Pasa el ID del viaje
+            intent.putExtra("tripID", tripID) // Pasa el ID del viaje
             intent.putExtra("isEditMode", false) // Indica que estamos creando una nueva parada
             startActivity(intent)
         }
@@ -168,7 +173,7 @@ class DetailedTripActivity : AppCompatActivity(), OnMapReadyCallback {
         if (id == R.id.album) {
             val fragment = AlbumFragment()
             val bundle = Bundle()
-            bundle.putString("trip", trip)
+            bundle.putString("trip", tripID)
             fragment.arguments = bundle
             supportFragmentManager.beginTransaction()
                 .add(R.id.frame_layout, fragment)
@@ -178,7 +183,7 @@ class DetailedTripActivity : AppCompatActivity(), OnMapReadyCallback {
         if (id == R.id.share) {
             val fragment = ShareTripFragment()
             val bundle = Bundle()
-            bundle.putString("trip", trip)
+            bundle.putString("trip", tripID)
             fragment.arguments = bundle
             supportFragmentManager.beginTransaction()
                 .add(R.id.frame_layout, fragment)
@@ -189,7 +194,7 @@ class DetailedTripActivity : AppCompatActivity(), OnMapReadyCallback {
         if (id == R.id.edit) {
             val fragment = EditTripFragment()
             val bundle = Bundle()
-            bundle.putString("trip", trip)
+            bundle.putString("trip", tripID)
             fragment.arguments = bundle
             supportFragmentManager.beginTransaction()
                 .add(R.id.frame_layout, fragment)
@@ -205,7 +210,7 @@ class DetailedTripActivity : AppCompatActivity(), OnMapReadyCallback {
 
         if (id == R.id.add_from_img) {
             val intent = Intent(applicationContext, CreateFromImgActivity::class.java)
-            intent.putExtra("tripID", trip)
+            intent.putExtra("tripID", tripID)
             intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             applicationContext.startActivity(intent)
             finish()

@@ -7,6 +7,7 @@ import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.TextView
 import androidx.lifecycle.Observer
 import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -24,6 +25,7 @@ class HomeFragment : Fragment() {
     private lateinit var tripRecyclerView: RecyclerView
     lateinit var tripAdapter: TripAdapter
     private lateinit var  fab_create : FloatingActionButton
+    private lateinit var tv_no_trip : TextView
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -39,6 +41,7 @@ class HomeFragment : Fragment() {
     ): View? {
         val view = inflater.inflate(R.layout.fragment_home, container, false)
         fab_create = view.findViewById(R.id.fab_custom)
+        tv_no_trip = view.findViewById(R.id.tv_no_trip)
         return view
     }
 
@@ -54,13 +57,17 @@ class HomeFragment : Fragment() {
         tripViewModel = ViewModelProvider(this).get(TripViewModel::class.java)
         tripViewModel.loadTrips()
 
-        tripViewModel.allTrips.observe(viewLifecycleOwner, Observer {
+        tripViewModel.allTrips.observe(viewLifecycleOwner) {
             tripAdapter.updateTripList(it.toMutableList())
-            Log.w("BD", "loadTripsHome")
-        })
+            if (it.isEmpty()) {
+                tv_no_trip.visibility = View.VISIBLE
+            } else {
+                tv_no_trip.visibility = View.GONE
+            }
+        }
 
         fab_create.setOnClickListener {
-            val intent = Intent(getActivity(), CreateTripActivity::class.java)
+            val intent = Intent(activity, CreateTripActivity::class.java)
             startActivity(intent)
         }
 
@@ -69,8 +76,13 @@ class HomeFragment : Fragment() {
 
     override fun onResume() {
         super.onResume()
-        tripViewModel.allTrips.observeForever {
-            tripAdapter.updateTripList(it)
+        tripViewModel.allTrips.observe(viewLifecycleOwner) {
+            tripAdapter.updateTripList(it.toMutableList())
+            if (it.isEmpty()) {
+                tv_no_trip.visibility = View.VISIBLE
+            } else {
+                tv_no_trip.visibility = View.GONE
+            }
         }
 
     }

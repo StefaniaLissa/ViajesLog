@@ -1,14 +1,11 @@
 package com.tfg.viajeslog.view.profile
 
-import android.Manifest
-import android.app.Dialog
-import android.content.ContentValues
+import ImagePickerHelper
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.graphics.drawable.Drawable
 import android.net.Uri
 import android.os.Bundle
-import android.provider.MediaStore
+import android.util.Log
 import android.util.Patterns
 import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
@@ -19,16 +16,12 @@ import android.widget.Button
 import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.ImageView
-import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
-import androidx.activity.result.ActivityResult
-import androidx.activity.result.ActivityResultCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
-import androidx.core.view.marginRight
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.DataSource
 import com.bumptech.glide.load.engine.GlideException
@@ -40,9 +33,27 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.storage.FirebaseStorage
-import kotlinx.coroutines.tasks.await
+import com.tfg.viajeslog.view.login.LoginActivity
 
+@Suppress("DEPRECATION")
 class EditProfileFragment : Fragment() {
+
+    private lateinit var imagePickerHelper: ImagePickerHelper
+
+    // Lanzadores de resultados para galería y cámara
+    private val galleryLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            if (result.resultCode == AppCompatActivity.RESULT_OK) {
+                imagePickerHelper.handleGalleryResult(result.data)
+            }
+        }
+
+    private val cameraLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            if (result.resultCode == AppCompatActivity.RESULT_OK) {
+                imagePickerHelper.handleCameraResult()
+            }
+        }
 
     private lateinit var iv_imagen: ImageView
     private lateinit var iv_delete: ImageView
@@ -89,7 +100,6 @@ class EditProfileFragment : Fragment() {
         pb_img = view.findViewById(R.id.pb_img)
         pb_save = view.findViewById(R.id.pb_save)
 
-
         auth = FirebaseAuth.getInstance()
         user = FirebaseAuth.getInstance().currentUser
 
@@ -128,6 +138,18 @@ class EditProfileFragment : Fragment() {
         }
         cb_online.isChecked = arguments?.getBoolean("public")!!
         lv_public_old = cb_online.isChecked
+
+
+        imagePickerHelper = ImagePickerHelper(context = requireContext(),
+            singleImageMode = true, // Cambiar a `false` si se permiten múltiples imágenes
+            onImagePicked = { uris ->
+                // Manejo de imágenes seleccionadas
+                if (uris.isNotEmpty()) {
+                    uri = uris[0]
+                    iv_imagen.setImageURI(uri) // Mostrar imagen en la vista
+                }
+            })
+
         return view
     }
 
@@ -137,7 +159,7 @@ class EditProfileFragment : Fragment() {
 
         //New Image
         btn_new_image.setOnClickListener {
-            CameraOrGalleryDialog()
+            imagePickerHelper.showImagePickerDialog(galleryLauncher, cameraLauncher)
         }
 
         //Cambiar Contraseña
@@ -163,7 +185,6 @@ class EditProfileFragment : Fragment() {
                 val referenceStorage = FirebaseStorage.getInstance().getReference(path)
                 referenceStorage.putFile(uri!!).addOnSuccessListener { task ->
                     val uriTask: Task<Uri> = task.storage.downloadUrl
-                    while (!uriTask.isSuccessful);
                     val url = "${uriTask.result}"
                     UpdateFirestore(url)
                 }.addOnFailureListener { e ->
@@ -201,7 +222,7 @@ class EditProfileFragment : Fragment() {
                     input.hint = "Contraseña actual"
                     builder.setView(input)
 
-                    builder.setPositiveButton("Confirmar") { dialog, _ ->
+                    builder.setPositiveButton("Confirmar") { _, _ ->
                         val currentPassword = input.text.toString()
                         val credential = FirebaseAuth.getInstance()
                             .signInWithEmailAndPassword(currentEmail!!, currentPassword)
@@ -263,7 +284,6 @@ class EditProfileFragment : Fragment() {
                         pb_save.visibility = View.GONE
                         btn_save.visibility = View.VISIBLE
                     }
-
             }
 
 
@@ -289,31 +309,128 @@ class EditProfileFragment : Fragment() {
 
             builder.setPositiveButton("Eliminar") { dialog, _ ->
                 dialog.dismiss()
-                // Proceed to delete the account
-                FirebaseFirestore.getInstance().collection("users").document(auth.uid!!).delete()
-                    .addOnSuccessListener {
-                        FirebaseAuth.getInstance().currentUser?.delete()!!
-                            .addOnCompleteListener { task ->
-                                if (task.isSuccessful) {
-                                    iv_delete.performClick()
-                                    parentFragmentManager.beginTransaction().remove(this).commit()
+
+                val userId = auth.uid!!
+                val db = FirebaseFirestore.getInstance()
+                val storage = FirebaseStorage.getInstance()
+
+                // Step 1: Delete user's trips if they are an admin
+                db.collection("trips").whereEqualTo("admin", userId).get()
+                    .addOnSuccessListener { tripsSnapshot ->
+                        if (!tripsSnapshot.isEmpty) {
+                            for (tripDoc in tripsSnapshot) {
+                                val tripId = tripDoc.id
+
+                                // Delete TripCover images
+                                val tripCoverRef = storage.reference.child("TripCover/$tripId/")
+                                tripCoverRef.listAll().addOnSuccessListener { listResult ->
+                                    for (file in listResult.items) {
+                                        file.delete().addOnFailureListener { e ->
+                                            Log.e(
+                                                "Delete Error",
+                                                "Failed to delete trip cover: ${e.message}"
+                                            )
+                                        }
+                                    }
+                                }.addOnFailureListener { e ->
+                                    Log.e("List Error", "Failed to list trip covers: ${e.message}")
                                 }
+
+                                // Delete Stop images
+                                db.collection("trips").document(tripId).collection("stops").get()
+                                    .addOnSuccessListener { stopsSnapshot ->
+                                        if (!stopsSnapshot.isEmpty) {
+                                            for (stopDoc in stopsSnapshot) {
+                                                val stopId = stopDoc.id
+                                                val stopImagesRef =
+                                                    storage.reference.child("Stop_Image/$tripId/$stopId/")
+                                                stopImagesRef.listAll()
+                                                    .addOnSuccessListener { listResult ->
+                                                        for (file in listResult.items) {
+                                                            file.delete()
+                                                                .addOnFailureListener { e ->
+                                                                    Log.e(
+                                                                        "Delete Error",
+                                                                        "Failed to delete stop image: ${e.message}"
+                                                                    )
+                                                                }
+                                                        }
+                                                    }.addOnFailureListener { e ->
+                                                        Log.e(
+                                                            "List Error",
+                                                            "Failed to list stop images: ${e.message}"
+                                                        )
+                                                    }
+                                            }
+                                        }
+
+                                        // Delete trip document after images are removed
+                                        db.collection("trips").document(tripId).delete()
+                                            .addOnFailureListener { e ->
+                                                Log.e(
+                                                    "Delete Error",
+                                                    "Failed to delete trip document: ${e.message}"
+                                                )
+                                            }
+                                    }.addOnFailureListener { e ->
+                                        Log.e("Query Error", "Failed to query stops: ${e.message}")
+                                    }
                             }
+                        }
                     }.addOnFailureListener { e ->
-                        Toast.makeText(
-                            context,
-                            "No se ha eliminado su cuenta debido a: ${e.message}",
-                            Toast.LENGTH_SHORT
-                        ).show()
+                        Log.e("Query Error", "Failed to query trips: ${e.message}")
                     }
+
+                // Step 2: Remove user from "members" collection
+                db.collection("members").whereEqualTo("userID", userId).get()
+                    .addOnSuccessListener { membersSnapshot ->
+                        if (!membersSnapshot.isEmpty) {
+                            for (memberDoc in membersSnapshot) {
+                                db.collection("members").document(memberDoc.id).delete()
+                                    .addOnFailureListener { e ->
+                                        Log.e(
+                                            "Delete Error", "Failed to delete member: ${e.message}"
+                                        )
+                                    }
+                            }
+                        }
+                    }.addOnFailureListener { e ->
+                        Log.e("Query Error", "Failed to query members: ${e.message}")
+                    }
+
+                // Step 3: Delete profile image
+                val profileImageRef = storage.reference.child("UserProfile/$userId")
+                profileImageRef.delete().addOnFailureListener { e ->
+                    Log.e("Delete Error", "Failed to delete profile image: ${e.message}")
+                }
+
+                // Step 4: Delete user document and authentication account
+                db.collection("users").document(userId).delete().addOnSuccessListener {
+                    FirebaseAuth.getInstance().currentUser?.delete()
+                        ?.addOnCompleteListener { task ->
+                            if (task.isSuccessful) {
+                                Toast.makeText(
+                                    context, "Cuenta eliminada correctamente.", Toast.LENGTH_SHORT
+                                ).show()
+                                startActivity(Intent(activity, LoginActivity::class.java))
+                                activity?.finish()
+                            }
+                        }!!.addOnFailureListener { e ->
+                            Log.e(
+                                "Delete Error", "Failed to delete Firebase Auth user: ${e.message}"
+                            )
+                        }
+                }.addOnFailureListener { e ->
+                    Log.e("Delete Error", "Failed to delete user document: ${e.message}")
+                }
             }
+
             builder.setNegativeButton("Cancelar") { dialog, _ ->
                 dialog.dismiss()
             }
 
             builder.create().show()
         }
-
 
         iv_delete.setOnClickListener {
             val builder = androidx.appcompat.app.AlertDialog.Builder(
@@ -337,7 +454,9 @@ class EditProfileFragment : Fragment() {
                                 Toast.LENGTH_SHORT
                             ).show()
                         }.addOnSuccessListener {
-                            iv_imagen.setImageDrawable(null)
+                            uri = null
+                            Glide.with(this).clear(iv_imagen) // Borra cualquier caché
+                            iv_imagen.setImageResource(R.drawable.ic_viajes_log) // Placeholder predeterminado
                         }
                 }.addOnFailureListener { e ->
                     Toast.makeText(
@@ -372,45 +491,6 @@ class EditProfileFragment : Fragment() {
         tv_alert.setVisibility(View.INVISIBLE)
     }
 
-    private fun CameraOrGalleryDialog() {
-        val btn_gallery: Button
-        val btn_camera: Button
-
-        val dialog = Dialog(requireContext())
-
-        dialog.setContentView(R.layout.select_img)
-
-        btn_gallery = dialog.findViewById(R.id.btn_gallery)
-        btn_camera = dialog.findViewById(R.id.btn_camera)
-
-        btn_gallery.setOnClickListener {
-            //Toast.makeText(applicationContext, "Abrir galería", Toast.LENGTH_SHORT).show()
-            if (ContextCompat.checkSelfPermission(
-                    requireContext(), Manifest.permission.READ_EXTERNAL_STORAGE
-                ) == PackageManager.PERMISSION_GRANTED
-            ) {
-                openGallery()
-                dialog.dismiss()
-            } else {
-                galleryPermission.launch(Manifest.permission.READ_EXTERNAL_STORAGE)
-            }
-
-        }
-
-        btn_camera.setOnClickListener {
-            //Toast.makeText(applicationContext, "Abrir cámara", Toast.LENGTH_SHORT).show()
-            if (ContextCompat.checkSelfPermission(
-                    requireContext(), Manifest.permission.CAMERA
-                ) == PackageManager.PERMISSION_GRANTED
-            ) {
-                openCamera()
-                dialog.dismiss()
-            } else {
-                cameraPermission.launch(Manifest.permission.CAMERA)
-            }
-        }
-        dialog.show()
-    }
 
     private fun UpdateFirestore(url: String) {
         FirebaseFirestore.getInstance().collection("users").document(auth.uid!!)
@@ -421,79 +501,7 @@ class EditProfileFragment : Fragment() {
                     Toast.LENGTH_SHORT
                 ).show()
             }
+        FirebaseFirestore.getInstance().collection("users").document(auth.uid!!)
     }
-
-    private fun openGallery() {
-        val intent = Intent(Intent.ACTION_PICK)
-        intent.type = "image/*"
-        galleryActivityResultLauncher.launch(intent)
-    }
-
-    private fun openCamera() {
-        val values = ContentValues()
-        values.put(MediaStore.Images.Media.TITLE, "Titulo")
-        values.put(MediaStore.Images.Media.DESCRIPTION, "Descripcion")
-        uri = requireActivity().contentResolver.insert(
-            MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values
-        )
-
-        val intent = Intent(MediaStore.ACTION_IMAGE_CAPTURE)
-        intent.putExtra(MediaStore.EXTRA_OUTPUT, uri)
-        cameraActivityResultLauncher.launch(intent)
-    }
-
-    private val galleryPermission =
-        registerForActivityResult(ActivityResultContracts.RequestPermission()) { permission ->
-            if (permission) {
-                openGallery()
-            } else {
-                Toast.makeText(
-                    context,
-                    "Permiso denegado. Actívelo en la configuración para continuar.",
-                    Toast.LENGTH_SHORT
-                ).show()
-            }
-        }
-
-
-    private val cameraPermission =
-        registerForActivityResult(ActivityResultContracts.RequestPermission()) { permission ->
-            if (permission) {
-                openCamera()
-            } else {
-                Toast.makeText(
-                    context,
-                    "Permiso denegado. Actívelo en la configuración para continuar.",
-                    Toast.LENGTH_SHORT
-                ).show()
-            }
-
-        }
-
-    private val galleryActivityResultLauncher =
-        registerForActivityResult(ActivityResultContracts.StartActivityForResult(),
-            ActivityResultCallback<ActivityResult> { result ->
-                if (result.resultCode == AppCompatActivity.RESULT_OK) {
-                    val data = result.data
-                    uri = data!!.data
-                    iv_imagen.setImageURI(uri)
-                    Glide.with(this).load(uri).placeholder(R.drawable.ic_downloading)
-                        .error(R.drawable.ic_error).centerCrop().into(iv_imagen)
-                } else {
-                    Toast.makeText(context, "Cancelado por el usuario", Toast.LENGTH_SHORT).show()
-
-                }
-
-            })
-
-    private val cameraActivityResultLauncher =
-        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-            if (result.resultCode == AppCompatActivity.RESULT_OK) {
-                iv_imagen.setImageURI(uri)
-                Glide.with(this).load(uri).into(iv_imagen)
-            } else {
-                Toast.makeText(context, "Cancelado por el usuario", Toast.LENGTH_SHORT).show()
-            }
-        }
 
 }

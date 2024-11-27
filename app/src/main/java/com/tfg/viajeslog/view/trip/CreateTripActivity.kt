@@ -94,7 +94,9 @@ class CreateTripActivity : AppCompatActivity() {
             db.collection("members").add(member)
 
             // Guardar Cover
-            uriString?.let { uploadCoverImage(it) }
+            if(uriString.toString() != ""){
+                uploadCoverImage(uriString.toString())
+            }
 
             if (cb_share.isChecked) {
                 openShareTripFragment()
@@ -185,8 +187,6 @@ class CreateTripActivity : AppCompatActivity() {
 
     private fun openCamera() {
         val values = ContentValues()
-        values.put(MediaStore.Images.Media.TITLE, "Titulo")
-        values.put(MediaStore.Images.Media.DESCRIPTION, "Descripcion")
         uri = contentResolver.insert(
             MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values
         )

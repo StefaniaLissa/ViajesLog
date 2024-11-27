@@ -44,6 +44,50 @@ class StopRepository {
         })
     }
 
+//    fun loadStops(documentId: String, mld_stops: MutableLiveData<List<Stop>>) {
+//        FirebaseFirestore.getInstance()
+//            .collection("trips")
+//            .document(documentId)
+//            .collection("stops")
+//            .addSnapshotListener { snapshot, e ->
+//                if (e != null) {
+//                    Log.w("Error", "loadStops failed.", e)
+//                    mld_stops.value = null
+//                    return@addSnapshotListener
+//                }
+//                var _stops = ArrayList<Stop>()
+//                for (doc in snapshot!!) {
+//                    val stop = doc.toObject(Stop::class.java)
+//                    stop.id = doc.id
+//
+//                    //get Images
+//                    var photoList = ArrayList<String>()
+//                    FirebaseFirestore.getInstance()
+//                        .collection("trips")
+//                        .document(documentId)
+//                        .collection("stops")
+//                        .document(doc.id)
+//                        .collection("photos")
+//                        .addSnapshotListener { photosDoc, e ->
+//                            if (e != null) {
+//                                Log.w("Error", "load images failed.", e)
+//                                mld_stops.value = null
+//                                return@addSnapshotListener
+//                            }
+//                            if (photosDoc != null) {
+//                                for (doc in photosDoc) {
+//                                    val photo = doc.toObject(Photo::class.java)
+//                                    photoList.add(photo.url.toString())
+//                                }
+//                            }
+//                        }
+//                    stop.photos = photoList
+//                    _stops.add(stop)
+//                    mld_stops.postValue(_stops)
+//                }
+//            }
+//    }
+
     fun loadStops(documentId: String, mld_stops: MutableLiveData<List<Stop>>) {
         FirebaseFirestore.getInstance()
             .collection("trips")
@@ -55,78 +99,46 @@ class StopRepository {
                     mld_stops.value = null
                     return@addSnapshotListener
                 }
-                var _stops = ArrayList<Stop>()
-                for (doc in snapshot!!) {
-                    val stop = doc.toObject(Stop::class.java)
-                    stop.id = doc.id
 
-                    //get Images
-                    var photoList = ArrayList<String>()
-                    FirebaseFirestore.getInstance()
-                        .collection("trips")
-                        .document(documentId)
-                        .collection("stops")
-                        .document(doc.id)
-                        .collection("photos")
-                        .addSnapshotListener { photosDoc, e ->
-                            if (e != null) {
-                                Log.w("Error", "load images failed.", e)
-                                mld_stops.value = null
-                                return@addSnapshotListener
-                            }
-                            if (photosDoc != null) {
-                                for (doc in photosDoc) {
-                                    val photo = doc.toObject(Photo::class.java)
-                                    photoList.add(photo.url.toString())
+                if (snapshot != null && !snapshot.isEmpty) {
+                    val _stops = mutableListOf<Stop>()
+
+                    for (doc in snapshot.documents) {
+                        val stop = doc.toObject(Stop::class.java)
+                        stop?.id = doc.id
+
+                        if (stop != null) {
+                            // Obtener imágenes asociadas a la parada
+                            FirebaseFirestore.getInstance()
+                                .collection("trips")
+                                .document(documentId)
+                                .collection("stops")
+                                .document(doc.id)
+                                .collection("photos")
+                                .get()
+                                .addOnSuccessListener { photosSnapshot ->
+                                    val photoList = photosSnapshot.documents.mapNotNull { photoDoc ->
+                                        photoDoc.toObject(Photo::class.java)?.url
+                                    }
+                                    stop.photos = ArrayList(photoList)
+                                    _stops.add(stop)
+
+                                    // Ordenar paradas por `timestamp` (de mayor a menor)
+                                    _stops.sortByDescending { it.timestamp?.toDate() }
+
+                                    // Publicar la lista actualizada
+                                    mld_stops.postValue(_stops)
                                 }
-                            }
+                                .addOnFailureListener { e ->
+                                    Log.w("Error", "Failed to load photos.", e)
+                                }
                         }
-                    stop.photos = photoList
-                    _stops.add(stop)
-                    mld_stops.postValue(_stops)
+                    }
+                } else {
+                    mld_stops.postValue(emptyList())
                 }
             }
     }
-
-//    fun loadSingleStop(tripId: String, stopId: String, mld_stop: MutableLiveData<Stop>) {
-//        FirebaseFirestore.getInstance()
-//            .collection("trips")
-//            .document(tripId)
-//            .collection("stops")
-//            .document(stopId)
-////            .get()
-////            .addOnSuccessListener { snapshot ->
-//            .addSnapshotListener { snapshot, e ->
-//                if (e != null) {
-//                    Log.w("Error", "loadStops failed.", e)
-//                    mld_stop.value = null
-//                    return@addSnapshotListener
-//                } else
-//                    if (snapshot != null && snapshot.exists()) {
-//                    val stop = snapshot.toObject(Stop::class.java)
-//
-//                    if (stop != null) {
-//                        //Images
-//                        var photoList = ArrayList<String>()
-//                        FirebaseFirestore.getInstance()
-//                            .collection("trips")
-//                            .document(tripId)
-//                            .collection("stops")
-//                            .document(stopId)
-//                            .collection("photos")
-//                            .get()
-//                            .addOnCompleteListener { photosDoc ->
-//                                for (doc in photosDoc.result) {
-//                                    val photo = doc.toObject(Photo::class.java)
-//                                    photoList.add(photo.url.toString())
-//                                }
-//                            }
-//                        stop.photos = photoList
-//                        mld_stop.postValue(stop)
-//                    }
-//                }
-//            }
-//    }
 
     fun loadSingleStop(tripId: String, stopId: String, mld_stop: MutableLiveData<Stop>) {
         // Escuchar cambios en el documento de la parada

@@ -60,4 +60,11 @@ class TripViewModel : ViewModel() {
         }
         return tripsLiveData
     }
+
+    private val _albumPhotos = MutableLiveData<List<String>>()
+    val albumPhotos: LiveData<List<String>> = _albumPhotos
+
+    fun loadAlbumPhotos(tripId: String) {
+        repository.loadAlbumPhotos(tripId, _albumPhotos)
+    }
 }

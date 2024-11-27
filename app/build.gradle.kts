@@ -106,4 +106,5 @@ dependencies {
     implementation (libs.androidx.exifinterface)
     implementation(kotlin("script-runtime"))
     implementation(libs.okhttp)
+
 }

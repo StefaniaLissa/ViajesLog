@@ -14,14 +14,14 @@
         <androidx.appcompat.widget.Toolbar
             android:id="@+id/toolbar"
             style="@style/ToolBarStyle"
-            android:theme="@style/ThemeOverlay.AppCompat.Light"
-            app:titleTextColor="@color/black"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:theme="@style/ThemeOverlay.AppCompat.Light"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent"
-            app:title="Viaje"/>
+            app:title="Viaje"
+            app:titleTextColor="@color/black" />
 
         <LinearLayout
             android:id="@+id/linearLayout"
@@ -39,6 +39,16 @@
                 android:layout_height="350dp"
                 app:uiRotateGestures="true"
                 app:uiZoomControls="true" />
+
+            <TextView
+                android:id="@+id/tv_no_stop"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:padding="@dimen/touch_btn"
+                android:text="No hay Puntos de Interés"
+                android:textAlignment="center"
+                android:textSize="@dimen/font_std"
+                android:visibility="gone" />
 
             <ScrollView
                 android:id="@+id/scroll_view"

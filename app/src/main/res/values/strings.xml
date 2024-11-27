@@ -71,4 +71,5 @@
     <string name="hh_mm">HH:MM</string>
     <string name="category">Category</string>
     <string name="no_fotos">Todavía no hay fotos 🥲</string>
+    <string name="user_not_found">Nombre de Usuario No Encontrado</string>
 </resources>

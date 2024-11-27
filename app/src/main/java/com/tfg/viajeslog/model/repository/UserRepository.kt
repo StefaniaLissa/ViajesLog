@@ -25,21 +25,21 @@ class UserRepository {
     //Carga a todos los usuarios menos al actual
     fun loadAllUsers(users: MutableLiveData<List<User>>) {
         FirebaseFirestore.getInstance().collection("users").addSnapshotListener { snapshot, e ->
-                if (e != null) {
-                    Log.w("Error", "loadAllUsers failed.", e)
-                    return@addSnapshotListener
-                }
+            if (e != null) {
+                Log.w("Error", "loadAllUsers failed.", e)
+                return@addSnapshotListener
+            }
 
-                var _users = ArrayList<User>()
-                for (doc in snapshot!!) {
-                    val user = doc.toObject(User::class.java)
-                    if (doc.id != currentUserId) {
-                        user.id = doc.id
-                        _users.add(user)
-                        users.postValue(_users)
-                    }
+            var _users = ArrayList<User>()
+            for (doc in snapshot!!) {
+                val user = doc.toObject(User::class.java)
+                if (doc.id != currentUserId) {
+                    user.id = doc.id
+                    _users.add(user)
+                    users.postValue(_users)
                 }
             }
+        }
     }
 
     fun loadEditors(tripID: String, editors: MutableLiveData<List<User>>) {
@@ -75,9 +75,14 @@ class UserRepository {
                     return@addSnapshotListener
                 }
                 if (snapshot != null) {
-                    val usr = snapshot.toObject(User::class.java)
-                    usr!!.id = snapshot.id
-                    user.postValue(usr)
+                    try {
+                        val usr = snapshot.toObject(User::class.java)
+                        usr!!.id = snapshot.id
+                        user.postValue(usr)
+                    } catch (exception: Exception) {
+                        Log.e("Firestore Error", "Error parsing user object: ${exception.message}")
+                        user.postValue(null)
+                    }
                 }
             }
     }
@@ -86,30 +91,23 @@ class UserRepository {
         val currentUserId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
 
         // Obtener los IDs de los editores del viaje
-        FirebaseFirestore.getInstance()
-            .collection("members")
-            .whereEqualTo("tripID", tripId)
-            .get()
+        FirebaseFirestore.getInstance().collection("members").whereEqualTo("tripID", tripId).get()
             .addOnSuccessListener { memberSnapshot ->
                 val editorIds = memberSnapshot.documents.map { it.getString("userID") }
 
                 // Obtener todos los usuarios excepto los editores y el usuario actual
-                FirebaseFirestore.getInstance()
-                    .collection("users")
-                    .get()
+                FirebaseFirestore.getInstance().collection("users").get()
                     .addOnSuccessListener { userSnapshot ->
-                        val filteredUsers = userSnapshot.documents
-                            .filter { it.id != currentUserId && !editorIds.contains(it.id) }
-                            .map { it.toObject(User::class.java)!!.apply { id = it.id } }
+                        val filteredUsers = userSnapshot.documents.filter {
+                                it.id != currentUserId && !editorIds.contains(it.id)
+                            }.map { it.toObject(User::class.java)!!.apply { id = it.id } }
 
                         users.postValue(filteredUsers)
-                    }
-                    .addOnFailureListener {
+                    }.addOnFailureListener {
                         // Manejar errores al obtener usuarios
                         users.postValue(emptyList())
                     }
-            }
-            .addOnFailureListener {
+            }.addOnFailureListener {
                 // Manejar errores al obtener editores
                 users.postValue(emptyList())
             }

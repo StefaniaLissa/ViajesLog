@@ -6,6 +6,7 @@ import android.os.Bundle
 import android.view.Menu
 import android.view.MenuItem
 import android.view.View
+import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.widget.Toolbar
@@ -51,6 +52,7 @@ class DetailedStopActivity : AppCompatActivity(), OnMapReadyCallback {
     private lateinit var mapManager: SupportMapFragment
     private lateinit var mMap: GoogleMap
     private lateinit var latLng: LatLng
+    private lateinit var llPlace: LinearLayout
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -60,14 +62,15 @@ class DetailedStopActivity : AppCompatActivity(), OnMapReadyCallback {
         //Get Stop
         stopViewModel = ViewModelProvider(this).get(StopViewModel::class.java)
         stopViewModel.loadStop(tripID, stopID)
-        stopViewModel.stop.observe(this, Observer {
+        stopViewModel.stop.observe(this) {
             if (it != null) {
+
+                stop = it
                 tv_name.text = it.name
 
                 var calendar = Calendar.getInstance()
                 calendar.time = Date(it.timestamp!!.seconds * 1000)
                 timestampFb = it.timestamp!!
-
 
                 tv_date.text = String.format(
                     "%02d",
@@ -84,27 +87,25 @@ class DetailedStopActivity : AppCompatActivity(), OnMapReadyCallback {
 
                 if (it.namePlace.toString().isNotBlank()) {
                     tv_place.text = it.namePlace.toString()
-                } else {
-                    tv_place.visibility = View.GONE
+                    llPlace.visibility = View.VISIBLE
                 }
 
                 if (it.addressPlace.toString().isNotBlank()) {
                     tv_address.text = it.addressPlace.toString()
-                } else {
-                    tv_address.visibility = View.GONE
+                    llPlace.visibility = View.VISIBLE
                 }
 
                 if (it.text.toString().isNotBlank()) {
                     tv_notes.text = it.text
+                    tv_notes.visibility = View.VISIBLE
                 } else {
                     tv_notes.visibility = View.GONE
                 }
 
-                stop = it
-                setupMap()
                 loadMultimedia()
+                setupMap()
             }
-        })
+        }
 
         //Mapa
         mapManager = supportFragmentManager.findFragmentById(R.id.mapStop) as SupportMapFragment
@@ -119,10 +120,10 @@ class DetailedStopActivity : AppCompatActivity(), OnMapReadyCallback {
 
     private fun loadMultimedia() {
         if (!stop?.photos.isNullOrEmpty()) {
-            val layoutManager =
-                LinearLayoutManager(rv_images.context, LinearLayoutManager.HORIZONTAL, false)
-            var adapter = ImageAdapter(stop?.photos!!)
+            val layoutManager = LinearLayoutManager(rv_images.context, LinearLayoutManager.HORIZONTAL, false)
             rv_images.layoutManager = layoutManager
+            var adapter = ImageAdapter(stop?.photos!!)
+            adapter.notifyDataSetChanged()
             rv_images.adapter = adapter
         }
     }
@@ -132,12 +133,12 @@ class DetailedStopActivity : AppCompatActivity(), OnMapReadyCallback {
         mMap.uiSettings.isMyLocationButtonEnabled = false
         mMap.uiSettings.isZoomControlsEnabled = false
         mMap.uiSettings.isCompassEnabled = false
-
     }
 
     private fun setupMap() {
         if (stop != null) {
             latLng = LatLng(stop!!.geoPoint!!.latitude, stop!!.geoPoint!!.longitude)
+            if ( latLng.toString() != "lat/lng: (0.0,0.0)" ) {
             mMap.addMarker(
                 MarkerOptions().position(latLng)
                     .icon(BitmapDescriptorFactory.fromResource(R.drawable.marker))
@@ -148,6 +149,10 @@ class DetailedStopActivity : AppCompatActivity(), OnMapReadyCallback {
             val bounds = bld.build()
             mMap.moveCamera(CameraUpdateFactory.newLatLngBounds(bounds, 1))
             mMap.animateCamera(CameraUpdateFactory.zoomTo(12.5f))
+                llPlace.visibility = View.VISIBLE
+            } else {
+                llPlace.visibility = View.GONE
+            }
         }
     }
 
@@ -175,7 +180,6 @@ class DetailedStopActivity : AppCompatActivity(), OnMapReadyCallback {
         intent.putExtra("stopID", stopID) // Pass the stop ID to identify the stop
         intent.putExtra("isEditMode", true) // Indicate that this is the edit mode
         startActivity(intent)
-        finish() // Finish the current activity if you don't want the user to navigate back to it
     }
 
     private fun deleteStop() {
@@ -232,6 +236,11 @@ class DetailedStopActivity : AppCompatActivity(), OnMapReadyCallback {
         return true
     }
 
+    override fun onResume() {
+        super.onResume()
+        stopViewModel.loadStop(tripID, stopID)
+    }
+
     private fun initLateinit() {
 
         //Get Trip Intent
@@ -246,6 +255,7 @@ class DetailedStopActivity : AppCompatActivity(), OnMapReadyCallback {
         tv_notes = findViewById(R.id.tv_notes)
         rv_images = findViewById(R.id.rv_images)
         tv_name = findViewById(R.id.tvName)
+        llPlace = findViewById(R.id.llPlace)
 
         toolbar = findViewById(R.id.tb_stop)
 

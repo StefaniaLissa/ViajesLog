@@ -11,6 +11,7 @@ import android.net.Uri
 import android.os.Bundle
 import android.provider.MediaStore
 import android.util.Log
+import android.view.View
 import android.widget.*
 import androidx.activity.result.ActivityResult
 import androidx.activity.result.ActivityResultCallback
@@ -58,10 +59,13 @@ class PostStopActivity : AppCompatActivity() {
     private lateinit var tvTime: TextView
     private lateinit var fabDone: FloatingActionButton
     private lateinit var sv_images: ScrollView
+    private lateinit var pb_load: ProgressBar
 
     // Firebase
     private lateinit var db: FirebaseFirestore
-    private var imagesList: ArrayList<String> = ArrayList()
+    private var imagesList: ArrayList<String> = ArrayList() // Imágenes mostradas en el RecyclerView
+    private var newImages: MutableList<String> = mutableListOf() // Nuevas imágenes para subir
+    private var imagesToDelete: MutableList<String> = mutableListOf() // Imágenes para eliminar
 
     // Variables
     private lateinit var adapter: ImageAdapter
@@ -73,6 +77,8 @@ class PostStopActivity : AppCompatActivity() {
     private var stop: Stop? = null
     private var timestampFb: Timestamp = Timestamp(Date())
     private var geoPoint: GeoPoint = GeoPoint(0.0, 0.0)
+    private var isEditMode: Boolean = false
+    private var calendar = Calendar.getInstance()
 
     // Places
     private var placeFragment: AutocompleteSupportFragment? = null
@@ -85,7 +91,7 @@ class PostStopActivity : AppCompatActivity() {
         setContentView(R.layout.activity_post_stop)
         init()
 
-        val isEditMode = intent.getBooleanExtra("isEditMode", false)
+        isEditMode = intent.getBooleanExtra("isEditMode", false)
         tripID = intent.getStringExtra("tripID") ?: ""
         stopID = intent.getStringExtra("stopID") ?: ""
         val userName = FirebaseAuth.getInstance().currentUser?.email ?: ""
@@ -100,6 +106,7 @@ class PostStopActivity : AppCompatActivity() {
             setupForNewStop() // Preparar para crear una nueva parada
         }
     }
+
     private fun checkEditingState(tripID: String, stopID: String, userName: String) {
         val stopDoc = db.collection("trips").document(tripID).collection("stops").document(stopID)
 
@@ -108,22 +115,26 @@ class PostStopActivity : AppCompatActivity() {
             if (editingUser != null && editingUser != userName) {
                 // Otro usuario está editando
                 Toast.makeText(
-                    this,
-                    "Esta parada está siendo editada por $editingUser.",
-                    Toast.LENGTH_LONG
+                    this, "Esta parada está siendo editada por $editingUser.", Toast.LENGTH_LONG
                 ).show()
                 finish() // Salir de la actividad
             } else {
                 // No hay nadie editando, actualizar el campo
                 stopDoc.update("editing", userName).addOnSuccessListener {
                     loadStopData(tripID, stopID)
+                    Toast.makeText(
+                        this, "Punto de Interés reservado para edición.", Toast.LENGTH_LONG
+                    ).show()
                 }.addOnFailureListener {
-                    Toast.makeText(this, "No se pudo establecer el estado de edición.", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(
+                        this, "No se pudo establecer el estado de edición.", Toast.LENGTH_LONG
+                    ).show()
                     finish()
                 }
             }
         }.addOnFailureListener {
-            Toast.makeText(this, "Error al verificar el estado de edición.", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Error al verificar el estado de edición.", Toast.LENGTH_LONG)
+                .show()
             finish()
         }
     }
@@ -138,19 +149,23 @@ class PostStopActivity : AppCompatActivity() {
         tvDate = findViewById(R.id.tv_date)
         tvTime = findViewById(R.id.tv_time)
         fabDone = findViewById(R.id.fab_done)
+        pb_load = findViewById(R.id.pb_load)
         db = FirebaseFirestore.getInstance()
 
         // Setup RecyclerView
         layoutManager = GridLayoutManager(this, 3)
-        //adapter = ImageAdapter(imagesList)
-        adapter = ImageAdapter(imagesList) { imageUrl ->
-            // Eliminar la imagen de la lista
-            imagesList.remove(imageUrl)
-            adapter.notifyDataSetChanged() // Actualizar el RecyclerView
 
-            // Opcional: Mostrar un mensaje
+
+        // Manejar la eliminación de imagenes
+        adapter = ImageAdapter(imagesList) { imageUrl ->
+            if (!newImages.remove(imageUrl)) { // Si no está en las nuevas, está en las existentes
+                imagesToDelete.add(imageUrl) // Marcar para eliminar
+            }
+            imagesList.remove(imageUrl) // Eliminar de la lista general
+            adapter.notifyDataSetChanged()
             Toast.makeText(this, "Imagen eliminada", Toast.LENGTH_SHORT).show()
         }
+
         rvImages.layoutManager = layoutManager
         rvImages.adapter = adapter
 
@@ -192,11 +207,10 @@ class PostStopActivity : AppCompatActivity() {
 
     private fun setupForNewStop() {
         //Cargar Fecha y Hora actual
-        tvDate.text = SimpleDateFormat(
-            "dd 'de' MMMM 'de' yyyy", Locale.getDefault()
-        ).format(Calendar.getInstance().timeInMillis)
-        tvTime.text = SimpleDateFormat("HH:mm").format(Calendar.getInstance().timeInMillis)
-        timestampFb = Timestamp(Calendar.getInstance().time)
+        calendar = Calendar.getInstance()
+        tvDate.text = SimpleDateFormat("dd 'de' MMMM 'de' yyyy", Locale.getDefault() ).format(calendar.timeInMillis)
+        tvTime.text = SimpleDateFormat("HH:mm").format(calendar.timeInMillis)
+        timestampFb = Timestamp(calendar.time)
     }
 
     private fun setupListeners() {
@@ -218,40 +232,47 @@ class PostStopActivity : AppCompatActivity() {
 
         // Date Picker
         tvDate.setOnClickListener {
+            val currentYear = calendar.get(Calendar.YEAR)
+            val currentMonth = calendar.get(Calendar.MONTH)
+            val currentDay = calendar.get(Calendar.DAY_OF_MONTH)
+
             val datePickerDialog = DatePickerDialog(
                 this,
                 R.style.CustomDatePickerTheme,
                 { _, year, month, day ->
-                    val calendar = Calendar.getInstance()
-                    calendar.set(year, month, day)
-                    tvDate.text =
-                        SimpleDateFormat("dd 'de' MMMM 'de' yyyy", Locale.getDefault()).format(
-                            calendar.time
-                        )
+                    calendar.set(Calendar.YEAR, year)
+                    calendar.set(Calendar.MONTH, month)
+                    calendar.set(Calendar.DAY_OF_MONTH, day)
+
+                    tvDate.text = SimpleDateFormat("dd 'de' MMMM 'de' yyyy", Locale.getDefault())
+                        .format(calendar.time)
+
+                    // Actualizar el Timestamp global
                     timestampFb = Timestamp(calendar.time)
                 },
-                Calendar.getInstance().get(Calendar.YEAR),
-                Calendar.getInstance().get(Calendar.MONTH),
-                Calendar.getInstance().get(Calendar.DAY_OF_MONTH)
+                currentYear, currentMonth, currentDay
             )
             datePickerDialog.show()
         }
 
         // Time Picker
         tvTime.setOnClickListener {
+            val currentHour = calendar.get(Calendar.HOUR_OF_DAY)
+            val currentMinute = calendar.get(Calendar.MINUTE)
+
             TimePickerDialog(
                 this,
                 R.style.CustomTimePickerTheme,
                 { _, hour, minute ->
-                    val calendar = Calendar.getInstance()
                     calendar.set(Calendar.HOUR_OF_DAY, hour)
                     calendar.set(Calendar.MINUTE, minute)
-                    tvTime.text =
-                        SimpleDateFormat("HH:mm", Locale.getDefault()).format(calendar.time)
+
+                    tvTime.text = SimpleDateFormat("HH:mm", Locale.getDefault()).format(calendar.time)
+
+                    // Actualizar el Timestamp global
                     timestampFb = Timestamp(calendar.time)
                 },
-                Calendar.getInstance().get(Calendar.HOUR_OF_DAY),
-                Calendar.getInstance().get(Calendar.MINUTE),
+                currentHour, currentMinute,
                 true
             ).show()
         }
@@ -282,12 +303,17 @@ class PostStopActivity : AppCompatActivity() {
 
         // Save or Update
         fabDone.setOnClickListener {
+            pb_load.visibility = View.VISIBLE
             if (mode == MODE_CREATE) {
                 createStop()
             } else if (mode == MODE_EDIT) {
                 updateStop()
             }
             updateTrip()
+            pb_load.visibility = View.GONE
+            db.waitForPendingWrites().addOnCompleteListener {
+                finish()
+            }
         }
     }
 
@@ -295,7 +321,15 @@ class PostStopActivity : AppCompatActivity() {
         // Actualizar las fechas del viaje (initDate, endDate, duración)
         db.collection("trips").document(tripID).get().addOnSuccessListener { document ->
             val trip = document.toObject(Trip::class.java)
-            val currentInitDate = trip?.initDate ?: Timestamp(Date(9999, 12, 31))
+
+            // Crear una fecha máxima válida usando Calendar
+            val maxDate = Calendar.getInstance().apply {
+                set(9999, Calendar.DECEMBER, 31, 23, 59, 59)
+            // Año 9999, mes diciembre (0-based), día 31, último segundo del día
+            }.time
+
+            // Convertir la fecha a un Timestamp
+            val currentInitDate = trip?.initDate ?: Timestamp(maxDate)
             val currentEndDate = trip?.endDate ?: Timestamp(Date(0, 1, 1))
 
             var newInitDate = currentInitDate
@@ -310,27 +344,21 @@ class PostStopActivity : AppCompatActivity() {
             }
 
             // Calcular duración en días
-            val durationInDays = (
-                    (newEndDate.seconds - newInitDate.seconds) / (60 * 60 * 24)
-                    ).toInt()
+            val durationInDays =
+                ((newEndDate.seconds - newInitDate.seconds) / (60 * 60 * 24)).toInt()
 
             // Actualizar en la base de datos
-            db.collection("trips").document(tripID)
-                .update(
+            db.collection("trips").document(tripID).update(
                     mapOf(
                         "initDate" to newInitDate,
                         "endDate" to newEndDate,
                         "duration" to durationInDays
                     )
-                )
-                .addOnSuccessListener {
+                ).addOnSuccessListener {
                     Toast.makeText(
-                        applicationContext,
-                        "Fechas y duración actualizadas",
-                        Toast.LENGTH_SHORT
+                        applicationContext, "Fechas y duración actualizadas", Toast.LENGTH_SHORT
                     ).show()
-                }
-                .addOnFailureListener { ex ->
+                }.addOnFailureListener { ex ->
                     Toast.makeText(
                         applicationContext,
                         "Error al actualizar fechas: ${ex.message}",
@@ -371,12 +399,17 @@ class PostStopActivity : AppCompatActivity() {
         etName.setText(stop.name)
         etDescription.setText(stop.text)
 
-        // Actualizar la fecha y hora
+        // Actualizar la fecha y hora desde el Timestamp
         stop.timestamp?.let { timestamp ->
-            tvDate.text = SimpleDateFormat(
-                "dd 'de' MMMM 'de' yyyy", Locale.getDefault()
-            ).format(timestamp.toDate())
-            tvTime.text = SimpleDateFormat("HH:mm", Locale.getDefault()).format(timestamp.toDate())
+            calendar.time = timestamp.toDate() // Sincroniza el Calendar global
+
+            tvDate.text = SimpleDateFormat("dd 'de' MMMM 'de' yyyy", Locale.getDefault())
+                .format(calendar.time)
+            tvTime.text = SimpleDateFormat("HH:mm", Locale.getDefault())
+                .format(calendar.time)
+
+            // Actualiza el timestampFb global
+            timestampFb = stop.timestamp!!
         }
 
         // Actualizar Google Places (si está inicializado)
@@ -384,18 +417,18 @@ class PostStopActivity : AppCompatActivity() {
             placeFragment?.setText(stop.namePlace)
         }
 
-        // Actualizar las imágenes
-        updateImages(stop.photos)
-    }
+        // Actualizar datos de Google Places
+        idPlace         = stop.idPlace!!
+        namePlace       = stop.namePlace!!
+        addressPlace    = stop.addressPlace!!
+        geoPoint        = stop.geoPoint!!
 
-    // Actualizar el RecyclerView de imágenes
-    private fun updateImages(photos: List<String>?) {
+        // Actualizar imágenes
         imagesList.clear()
-        if (photos != null) {
-            imagesList.addAll(photos)
-        }
+        imagesList.addAll(stop.photos ?: emptyList()) // Imágenes existentes en Edit Mode
         adapter.notifyDataSetChanged()
     }
+
 
     // Mostrar errores
     private fun showError(message: String) {
@@ -417,7 +450,6 @@ class PostStopActivity : AppCompatActivity() {
             .addOnSuccessListener { documentReference ->
                 uploadImages(documentReference.id)
                 Toast.makeText(this, "Parada creada con éxito", Toast.LENGTH_SHORT).show()
-                finish()
             }
     }
 
@@ -435,35 +467,67 @@ class PostStopActivity : AppCompatActivity() {
         stopID?.let { id ->
             db.collection("trips").document(tripID).collection("stops").document(id)
                 .update(stopData as Map<String, Any>).addOnSuccessListener {
-                    uploadImages(id)
+                    uploadImages(id) // Manejar las imágenes
                     Toast.makeText(this, "Parada actualizada con éxito", Toast.LENGTH_SHORT).show()
-                    finish()
                 }
         }
+
+        Toast.makeText(
+            this, "Punto de Interés liberado.", Toast.LENGTH_LONG
+        ).show()
     }
 
     private fun uploadImages(stopId: String) {
-        imagesList.forEach { uriString ->
+
+        // Modo Creación
+        if (!isEditMode){
+            newImages.addAll(imagesList)
+            imagesToDelete.clear()
+        }
+
+        // Asegurar que no hay duplicados
+        newImages = newImages.distinct().toMutableList()
+        imagesToDelete = imagesToDelete.distinct().toMutableList()
+
+
+        // Subir nuevas imágenes
+        newImages.forEach { uriString ->
             val storageRef = FirebaseStorage.getInstance()
                 .getReference("Stop_Image/$tripID/$stopId/${System.currentTimeMillis()}")
-
             storageRef.putFile(uriString.toUri()).addOnSuccessListener { taskSnapshot ->
                 taskSnapshot.storage.downloadUrl.addOnSuccessListener { uri ->
                     val photoData = hashMapOf("url" to uri.toString())
                     db.collection("trips").document(tripID).collection("stops").document(stopId)
                         .collection("photos").add(photoData)
                 }
-            }.addOnFailureListener { e ->
-                Toast.makeText(this, "Error al subir imagen: ${e.message}", Toast.LENGTH_SHORT)
-                    .show()
             }
         }
+
+        // Eliminar imágenes marcadas
+        imagesToDelete.forEach { url ->
+            val storageRef = FirebaseStorage.getInstance().getReferenceFromUrl(url)
+            storageRef.delete().addOnSuccessListener {
+                db.collection("trips").document(tripID).collection("stops").document(stopId)
+                    .collection("photos").whereEqualTo("url", url).get()
+                    .addOnSuccessListener { querySnapshot ->
+                        querySnapshot.documents.forEach { it.reference.delete() }
+                    }
+            }
+        }
+
+        // Limpiar las listas
+        newImages.clear()
+        imagesToDelete.clear()
     }
+
 
     override fun onDestroy() {
         super.onDestroy()
         if (mode == MODE_EDIT) {
             clearEditingState(tripID, stopID)
+            Toast.makeText(
+                this, "Punto de Interés liberado.", Toast.LENGTH_LONG
+            ).show()
         }
     }
 
@@ -471,16 +535,17 @@ class PostStopActivity : AppCompatActivity() {
         super.onBackPressed()
         if (mode == MODE_EDIT) {
             clearEditingState(tripID, stopID)
+            Toast.makeText(
+                this, "Punto de Interés liberado.", Toast.LENGTH_LONG
+            ).show()
         }
     }
-    override fun onStop() {
-        super.onStop()
-        // Handle clearing the "editing" field only if the user is editing a stop
-        if (mode == MODE_EDIT) {
-            clearEditingState(tripID, stopID)
-            finish()
-        }
-    }
+
+//    override fun onResume() {
+//        super.onResume()
+//        if (mode == MODE_EDIT) {
+//        }
+//    }
 
     private fun clearEditingState(tripID: String, stopID: String?) {
         val stopDoc = db.collection("trips").document(tripID).collection("stops").document(stopID!!)
@@ -513,10 +578,13 @@ class PostStopActivity : AppCompatActivity() {
                         data.clipData?.let {
                             for (i in 0 until it.itemCount) {
                                 val imageUri = it.getItemAt(i).uri.toString()
+                                newImages.add(imageUri)
                                 imagesList.add(imageUri)
                             }
                         } ?: data.data?.let { uri ->
-                            imagesList.add(uri.toString())
+                            val imageUri = uri.toString()
+                            newImages.add(imageUri)
+                            imagesList.add(imageUri)
                         }
                     }
                     sv_images.isVisible = true // Make the ScrollView visible
