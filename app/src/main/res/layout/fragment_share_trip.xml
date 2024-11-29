@@ -6,7 +6,7 @@
     android:layout_height="match_parent"
     android:background="@color/yellow"
     android:padding="@dimen/padding_touch_min"
-    tools:context=".view.trip.ShareTripFragment">
+    tools:context=".view.tripExtra.ShareTripFragment">
 
     <TextView
         android:id="@+id/tv_title"

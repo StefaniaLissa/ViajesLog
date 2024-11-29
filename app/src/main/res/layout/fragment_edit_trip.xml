@@ -52,16 +52,31 @@
         android:scaleType="centerCrop"
         app:shapeAppearanceOverlay="@style/fab_square" />
 
-    <Button
-        android:id="@+id/btn_new_image"
+    <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="@dimen/touch_btn"
-        android:layout_margin="@dimen/margin_touch_min"
-        android:background="@drawable/bt_rounded_corner"
-        android:paddingBottom="5dp"
-        android:text="CAMBIAR IMAGEN"
-        android:textSize="@dimen/font_std"
-        android:textStyle="bold" />
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <Button
+            android:id="@+id/btn_new_image"
+            android:layout_width="0dp"
+            android:layout_height="@dimen/touch_btn"
+            android:layout_weight="1"
+            android:layout_margin="@dimen/margin_touch_min"
+            android:background="@drawable/bt_rounded_corner"
+            android:paddingBottom="5dp"
+            android:text="CAMBIAR IMAGEN"
+            android:textSize="@dimen/font_std"
+            android:textStyle="bold" />
+
+        <ImageView
+            android:id="@+id/iv_delete"
+            android:layout_width="@dimen/touch_btn"
+            android:layout_height="@dimen/touch_btn"
+            android:layout_margin="@dimen/margin_touch_min"
+            android:src="@drawable/btn_round_delete" />
+    </LinearLayout>
 
     <CheckBox
         android:id="@+id/cb_online"

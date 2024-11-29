@@ -9,6 +9,7 @@ import android.view.View
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.widget.Toolbar
 import androidx.lifecycle.Observer
 import androidx.lifecycle.ViewModelProvider
@@ -53,11 +54,16 @@ class DetailedStopActivity : AppCompatActivity(), OnMapReadyCallback {
     private lateinit var mMap: GoogleMap
     private lateinit var latLng: LatLng
     private lateinit var llPlace: LinearLayout
+    private var isReadOnly: Boolean = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_detailed_stop)
         initLateinit()
+
+
+        // Obtener el flag de solo lectura
+        isReadOnly = intent.getBooleanExtra("isReadOnly", false)
 
         //Get Stop
         stopViewModel = ViewModelProvider(this).get(StopViewModel::class.java)
@@ -120,7 +126,8 @@ class DetailedStopActivity : AppCompatActivity(), OnMapReadyCallback {
 
     private fun loadMultimedia() {
         if (!stop?.photos.isNullOrEmpty()) {
-            val layoutManager = LinearLayoutManager(rv_images.context, LinearLayoutManager.HORIZONTAL, false)
+            val layoutManager =
+                LinearLayoutManager(rv_images.context, LinearLayoutManager.HORIZONTAL, false)
             rv_images.layoutManager = layoutManager
             var adapter = ImageAdapter(stop?.photos!!)
             adapter.notifyDataSetChanged()
@@ -138,17 +145,17 @@ class DetailedStopActivity : AppCompatActivity(), OnMapReadyCallback {
     private fun setupMap() {
         if (stop != null) {
             latLng = LatLng(stop!!.geoPoint!!.latitude, stop!!.geoPoint!!.longitude)
-            if ( latLng.toString() != "lat/lng: (0.0,0.0)" ) {
-            mMap.addMarker(
-                MarkerOptions().position(latLng)
-                    .icon(BitmapDescriptorFactory.fromResource(R.drawable.marker))
-            )
+            if (latLng.toString() != "lat/lng: (0.0,0.0)") {
+                mMap.addMarker(
+                    MarkerOptions().position(latLng)
+                        .icon(BitmapDescriptorFactory.fromResource(R.drawable.marker))
+                )
 
-            val bld = LatLngBounds.Builder()
-            bld.include(latLng)
-            val bounds = bld.build()
-            mMap.moveCamera(CameraUpdateFactory.newLatLngBounds(bounds, 1))
-            mMap.animateCamera(CameraUpdateFactory.zoomTo(12.5f))
+                val bld = LatLngBounds.Builder()
+                bld.include(latLng)
+                val bounds = bld.build()
+                mMap.moveCamera(CameraUpdateFactory.newLatLngBounds(bounds, 1))
+                mMap.animateCamera(CameraUpdateFactory.zoomTo(12.5f))
                 llPlace.visibility = View.VISIBLE
             } else {
                 llPlace.visibility = View.GONE
@@ -164,13 +171,14 @@ class DetailedStopActivity : AppCompatActivity(), OnMapReadyCallback {
             }
 
             R.id.delete -> {
-                deleteStop()
+                showDeleteConfirmationDialog { deleteStop() }
             }
 
             R.id.edit -> {
                 editStop()
             }
         }
+
         return true
     }
 
@@ -212,27 +220,46 @@ class DetailedStopActivity : AppCompatActivity(), OnMapReadyCallback {
 
                 // Actualizar en la base de datos
                 FirebaseFirestore.getInstance().collection("trips").document(tripID).update(
-                        mapOf(
-                            "initDate" to newInitDate,
-                            "endDate" to newEndDate,
-                            "duration" to durationInDays
-                        )
-                    ).addOnSuccessListener {
-                        Toast.makeText(
-                            applicationContext, "Fechas y duración actualizadas", Toast.LENGTH_SHORT
-                        ).show()
-                    }.addOnFailureListener { ex ->
-                        Toast.makeText(
-                            applicationContext,
-                            "Error al actualizar fechas: ${ex.message}",
-                            Toast.LENGTH_SHORT
-                        ).show()
-                    }
+                    mapOf(
+                        "initDate" to newInitDate,
+                        "endDate" to newEndDate,
+                        "duration" to durationInDays
+                    )
+                ).addOnSuccessListener {
+                    Toast.makeText(
+                        applicationContext, "Fechas y duración actualizadas", Toast.LENGTH_SHORT
+                    ).show()
+                }.addOnFailureListener { ex ->
+                    Toast.makeText(
+                        applicationContext,
+                        "Error al actualizar fechas: ${ex.message}",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
             }
+    }
+
+    private fun showDeleteConfirmationDialog(onConfirm: () -> Unit) {
+        val builder = AlertDialog.Builder(this, R.style.CustomDialogTheme)
+        builder.setTitle("Confirmar eliminación")
+        builder.setMessage("¿Estás seguro de que deseas eliminar este viaje? Esta acción no se puede deshacer.")
+        builder.setPositiveButton("Eliminar") { dialog, _ ->
+            onConfirm()
+            dialog.dismiss()
+            finish()
+        }
+        builder.setNegativeButton("Cancelar") { dialog, _ ->
+            dialog.dismiss()
+        }
+        builder.create().show()
     }
 
     override fun onCreateOptionsMenu(menu: Menu?): Boolean {
         menuInflater.inflate(R.menu.stop_toolbar, menu)
+        if (isReadOnly) {
+            menu?.findItem(R.id.edit)?.isVisible = false
+            menu?.findItem(R.id.delete)?.isVisible = false
+        }
         return true
     }
 

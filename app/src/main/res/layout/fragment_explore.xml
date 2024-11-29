@@ -4,7 +4,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context=".view.trip.ExploreFragment">
+    tools:context=".view.tripExtra.ExploreFragment">
 
     <LinearLayout
         android:id="@+id/linearLayout"
@@ -61,7 +61,7 @@
             android:layout_margin="@dimen/margin_touch_min"
             android:background="@drawable/bt_rounded_corner"
             android:paddingBottom="5dp"
-            android:text="VIAJES CORTOS"
+            android:text="VIAJES DE UNA SEMANA"
             android:textSize="@dimen/font_std"
             android:textStyle="bold" />
 

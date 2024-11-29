@@ -1,10 +1,7 @@
-package com.tfg.viajeslog.view.trip
+package com.tfg.viajeslog.view.tripExtra
 
 import android.os.Bundle
-import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowInsetsCompat
 import com.tfg.viajeslog.R
 
 class MediumActivity : AppCompatActivity() {

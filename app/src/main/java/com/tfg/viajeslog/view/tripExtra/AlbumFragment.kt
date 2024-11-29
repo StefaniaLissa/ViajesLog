@@ -1,8 +1,6 @@
-package com.tfg.viajeslog.view.trip
+package com.tfg.viajeslog.view.tripExtra
 
-import android.net.Uri
 import android.os.Bundle
-import android.util.Log
 import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
 import android.view.View
@@ -14,9 +12,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.tfg.viajeslog.R
-import com.tfg.viajeslog.model.data.Photo
 import com.tfg.viajeslog.view.adapters.ImageAdapter
-import com.google.firebase.firestore.FirebaseFirestore
 import com.tfg.viajeslog.viewmodel.TripViewModel
 
 class AlbumFragment : Fragment() {
@@ -86,4 +82,6 @@ class AlbumFragment : Fragment() {
             }
         }
     }
+
+
 }

@@ -1,13 +1,8 @@
 package com.tfg.viajeslog.view.trip
 
-import android.Manifest
-import android.app.Dialog
-import android.content.ContentValues
-import android.content.Intent
-import android.content.pm.PackageManager
+import com.tfg.viajeslog.helper.ImagePickerHelper
 import android.net.Uri
 import android.os.Bundle
-import android.provider.MediaStore
 import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
 import android.view.View
@@ -19,20 +14,13 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.SearchView
 import android.widget.Toast
-import androidx.activity.result.ActivityResult
-import androidx.activity.result.ActivityResultCallback
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatActivity.RESULT_OK
-import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
-import androidx.core.view.isVisible
-import androidx.lifecycle.Observer
 import androidx.lifecycle.ViewModelProvider
 import com.bumptech.glide.Glide
 import com.tfg.viajeslog.R
 import com.tfg.viajeslog.viewmodel.TripViewModel
-import com.google.android.gms.tasks.Task
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.firestore.FirebaseFirestore
@@ -42,6 +30,7 @@ class EditTripFragment : Fragment() {
 
     private lateinit var iv_cover: ImageView
     private lateinit var btn_new_image: Button
+    private lateinit var iv_delete: ImageView
     private lateinit var et_name: EditText
     private lateinit var cb_online: CheckBox
     private lateinit var ll_cb_share: LinearLayout
@@ -55,14 +44,18 @@ class EditTripFragment : Fragment() {
     private lateinit var user: FirebaseUser
     private lateinit var viewModel: TripViewModel
     private lateinit var tripID: String
+    private var originalImageUrl: String? = null // Guardar URL original de la imagen
+
+
+    private lateinit var imagePickerHelper: ImagePickerHelper // com.tfg.viajeslog.helper.ImagePickerHelper
 
     override fun onCreateView(
-        inflater: LayoutInflater, container: ViewGroup?,
-        savedInstanceState: Bundle?
+        inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
     ): View? {
         val view = inflater.inflate(R.layout.fragment_edit_trip, container, false)
         iv_cover = view.findViewById(R.id.iv_cover)
         btn_new_image = view.findViewById(R.id.btn_new_image)
+        iv_delete = view.findViewById(R.id.iv_delete)
         et_name = view.findViewById(R.id.et_name)
         cb_online = view.findViewById(R.id.cb_online)
         ll_cb_share = view.findViewById(R.id.ll_cb_share)
@@ -84,199 +77,174 @@ class EditTripFragment : Fragment() {
         return view
     }
 
-    override fun onStart() {
-        super.onStart()
-    }
-
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+
+        // Configurar com.tfg.viajeslog.helper.ImagePickerHelper
+        imagePickerHelper = ImagePickerHelper(context = requireContext(),
+            singleImageMode = true,
+            onImagePicked = { uris ->
+                if (uris.isNotEmpty()) {
+                    uri = uris[0]
+                    updateCoverImage(uri)
+                    iv_delete.isEnabled = true
+                    iv_delete.alpha = 1.0f
+                }
+            })
+
+        // Observador del ViewModel para cargar los datos del viaje
         viewModel = ViewModelProvider(this).get(TripViewModel::class.java)
         viewModel.loadTrip(tripID)
-        viewModel.trip.observe(viewLifecycleOwner, Observer {
-            et_name.setText(it.name)
-            iv_cover.contentDescription = it.image
-            Glide.with(this)
-                .load(it.image)
-                .placeholder(R.drawable.ic_downloading)
-                .error(R.drawable.ic_error)
-                .centerCrop()
-                .into(iv_cover)
-        })
 
-
-        //Cambiar imagen
-        btn_new_image.setOnClickListener {
-            CameraOrGalleryDialog()
+        viewModel.trip.observe(viewLifecycleOwner) {
+            if (it != null) {
+                et_name.setText(it.name)
+                if (it.image != null) {
+                    originalImageUrl = it.image // Guardar URL original
+                    iv_cover.contentDescription = it.image
+                    Glide.with(this).load(it.image).placeholder(R.drawable.ic_downloading)
+                        .error(R.drawable.ic_error).centerCrop().into(iv_cover)
+                    iv_delete.isEnabled = true
+                    iv_delete.alpha = 1.0f
+                } else {
+                    iv_delete.isEnabled = false
+                    iv_delete.alpha = 0.5f
+                }
+                viewModel.trip.removeObservers(viewLifecycleOwner)
+            }
         }
+
+        // Imagen como botón para cambiarla
         iv_cover.setOnClickListener {
-            CameraOrGalleryDialog()
-        }
-
-        // Actualizar Viaje
-        btn_create.setOnClickListener {
-            val trip = hashMapOf(
-                "name" to et_name.text.toString(),
-                "public" to cb_online.isChecked
+            imagePickerHelper.showImagePickerDialog(
+                galleryLauncher = galleryLauncher,
+                cameraLauncher = cameraLauncher,
+                permissionLauncher = permissionLauncher
             )
-
-            var docRef = db.collection("trips").document(tripID)
-            docRef.update(trip as Map<String, Any>)
-
-            // Guardar Cover
-            if (uriString != null) {
-                //Save Image in Firebase Store
-                val rutaImagen = "TripCover/" + tripID + "/" + System.currentTimeMillis()
-                val referenceStorage = FirebaseStorage.getInstance().getReference(rutaImagen)
-                referenceStorage.putFile(uriString!!.toUri())
-                    .addOnSuccessListener { task ->
-                        val uriTask: Task<Uri> = task.storage.downloadUrl
-                        while (!uriTask.isSuccessful);
-                        val url = "${uriTask.result}"
-                        UpdateFirestore(url)
-                    }.addOnFailureListener { e ->
-                        Toast.makeText(
-                            requireActivity().getApplicationContext(),
-                            "No se ha podido subir la imagen debido a: ${e.message}",
-                            Toast.LENGTH_SHORT
-                        ).show()
-                    }
-            }
-            requireFragmentManager().beginTransaction().remove(this).commit();
         }
-    }
+        btn_new_image.setOnClickListener {
+            imagePickerHelper.showImagePickerDialog(
+                galleryLauncher = galleryLauncher,
+                cameraLauncher = cameraLauncher,
+                permissionLauncher = permissionLauncher
+            )
+        }
 
-    private fun CameraOrGalleryDialog() {
-        iv_cover.background = null
-        val btn_gallery: Button
-        val btn_camera: Button
-
-        val dialog = Dialog(this@EditTripFragment.requireContext())
-
-        dialog.setContentView(R.layout.select_img)
-
-        btn_gallery = dialog.findViewById(R.id.btn_gallery)
-        btn_camera = dialog.findViewById(R.id.btn_camera)
-
-        btn_gallery.setOnClickListener {
-            //Toast.makeText(applicationContext, "Abrir galería", Toast.LENGTH_SHORT).show()
-            if (ContextCompat.checkSelfPermission(
-                    requireActivity().getApplicationContext(),
-                    Manifest.permission.READ_EXTERNAL_STORAGE
-                ) == PackageManager.PERMISSION_GRANTED
-            ) {
-                openGallery()
-                dialog.dismiss()
-            } else {
-                galleryPermission.launch(Manifest.permission.READ_EXTERNAL_STORAGE)
-            }
+        // Botón para eliminar la imagen
+        iv_delete.setOnClickListener {
+            clearCoverImage()
 
         }
 
-        btn_camera.setOnClickListener {
-            //Toast.makeText(applicationContext, "Abrir cámara", Toast.LENGTH_SHORT).show()
-            if (ContextCompat.checkSelfPermission(
-                    requireActivity().getApplicationContext(),
-                    Manifest.permission.CAMERA
-                ) == PackageManager.PERMISSION_GRANTED
-            ) {
-                openCamera()
-                dialog.dismiss()
-            } else {
-                cameraPermission.launch(Manifest.permission.CAMERA)
-            }
+        // Botón para guardar los cambios
+        btn_create.setOnClickListener {
+            updateTrip()
         }
-        dialog.show()
+
     }
 
-
-    private fun UpdateFirestore(url: String) {
-        FirebaseFirestore.getInstance()
-            .collection("trips")
-            .document(tripID)
-            .update("image", url)
-            .addOnFailureListener { e ->
-                Toast.makeText(
-                    requireActivity().getApplicationContext(),
-                    "No se ha actualizado su imagen debido a: ${e.message}",
-                    Toast.LENGTH_SHORT
-                ).show()
-            }
-    }
-
-
-    private fun openGallery() {
-        val intent = Intent(Intent.ACTION_PICK)
-        intent.type = "image/*"
-        galleryActivityResultLauncher.launch(intent)
-    }
-
-    private fun openCamera() {
-        val values = ContentValues()
-        values.put(MediaStore.Images.Media.TITLE, "Titulo")
-        values.put(MediaStore.Images.Media.DESCRIPTION, "Descripcion")
-        val contentResolver = requireActivity().getContentResolver()
-        uri = contentResolver.insert(
-            MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
-            values
+    private fun updateTrip() {
+        val trip = hashMapOf(
+            "name" to et_name.text.toString(), "public" to cb_online.isChecked
         )
 
-        val intent = Intent(MediaStore.ACTION_IMAGE_CAPTURE)
-        intent.putExtra(MediaStore.EXTRA_OUTPUT, uri)
-        cameraActivityResultLauncher.launch(intent)
+        // Actualizar los datos en Firestore
+        val docRef = db.collection("trips").document(tripID)
+        docRef.update(trip as Map<String, Any>).addOnSuccessListener {
+            // Subir la imagen si es necesario
+            uri?.let { imageUri ->
+                uploadCoverImage(imageUri.toString())
+            }
+
+            // Eliminar la imagen anterior si fue eliminada
+            if (originalImageUrl != null && uri == null) {
+                deleteImageFromStorage(originalImageUrl!!)
+            }
+
+            Toast.makeText(context, "Viaje actualizado correctamente", Toast.LENGTH_SHORT).show()
+            parentFragmentManager.beginTransaction().remove(this).commit()
+        }.addOnFailureListener { e ->
+            Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+        }
     }
 
+    private fun deleteImageFromStorage(imageUrl: String) {
+        val referenceStorage = FirebaseStorage.getInstance().getReferenceFromUrl(imageUrl)
+        referenceStorage.delete().addOnSuccessListener {
+            db.collection("trips").document(tripID).update("image", null) // Actualizar Firestore
+            Toast.makeText(context, "Imagen eliminada correctamente", Toast.LENGTH_SHORT).show()
+        }.addOnFailureListener { e ->
+            Toast.makeText(context, "Error al eliminar la imagen: ${e.message}", Toast.LENGTH_SHORT)
+                .show()
+        }
+    }
 
-    private val galleryPermission =
-        registerForActivityResult(ActivityResultContracts.RequestPermission()) { permission ->
-            if (permission) {
-                openGallery()
-            } else {
-                Toast.makeText(
-                    requireActivity().getApplicationContext(),
-                    "El permiso para acceder a la galería no ha sido concedido",
-                    Toast.LENGTH_SHORT
-                ).show()
+    private fun uploadCoverImage(imageUri: String) {
+        val rutaImagen = "TripCover/$tripID/${System.currentTimeMillis()}"
+        val referenceStorage = FirebaseStorage.getInstance().getReference(rutaImagen)
+        referenceStorage.putFile(imageUri.toUri()).addOnSuccessListener { task ->
+            task.storage.downloadUrl.addOnSuccessListener { uri ->
+                db.collection("trips").document(tripID).update("image", uri.toString())
+            }
+        }.addOnFailureListener { e ->
+            Toast.makeText(context, "No se pudo subir la imagen: ${e.message}", Toast.LENGTH_SHORT)
+                .show()
+        }
+    }
+
+    private fun clearCoverImage() {
+        val builder = androidx.appcompat.app.AlertDialog.Builder(
+            requireContext(), R.style.CustomDialogTheme
+        )
+        builder.setTitle("Confirmación")
+        builder.setMessage("¿Está seguro de que desea eliminar la imagen? Esta acción no se puede deshacer.")
+
+        builder.setPositiveButton("Eliminar") { dialog, _ ->
+            dialog.dismiss()
+            // Actualizar estado de la imagen
+            uri = null
+            iv_cover.setImageResource(R.drawable.ic_cover_background) // Imagen por defecto
+            iv_cover.contentDescription = null
+
+            // Si había una imagen original en Firestore, actualizar el modelo
+            if (!originalImageUrl.isNullOrEmpty()) {
+                deleteImageFromStorage(originalImageUrl!!)
+                originalImageUrl = null
+            }
+
+            iv_delete.isEnabled = false
+            iv_delete.alpha = 0.5f
+        }
+
+        builder.setNegativeButton("Cancelar") { dialog, _ ->
+            dialog.dismiss()
+        }
+
+        builder.create().show()
+    }
+
+    private fun updateCoverImage(uri: Uri?) {
+        iv_cover.setImageURI(uri)
+    }
+
+    private val permissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
+            if (!isGranted) {
+                Toast.makeText(context, "Permiso denegado. Vuelva a intentarlo.", Toast.LENGTH_SHORT).show()
             }
         }
 
-
-    private val cameraPermission =
-        registerForActivityResult(ActivityResultContracts.RequestPermission()) { permission ->
-            if (permission) {
-                openCamera()
-            } else {
-                Toast.makeText(
-                    requireActivity().getApplicationContext(),
-                    "El permiso para acceder a la cámara no ha sido concedido",
-                    Toast.LENGTH_SHORT
-                ).show()
-            }
-        }
-
-    private val galleryActivityResultLauncher = registerForActivityResult(
-        ActivityResultContracts.StartActivityForResult(),
-        ActivityResultCallback<ActivityResult> { result ->
-            if (result.resultCode == RESULT_OK) {
-                val data = result.data
-                uri = data!!.data
-                uriString = data.clipData!!.getItemAt(0).uri.toString()
-                iv_cover.setImageURI(uri)
-
-            } else {
-                Toast.makeText(requireActivity().getApplicationContext(), "Cancelado por el usuario", Toast.LENGTH_SHORT)
-                    .show()
-
-            }
-        }
-    )
-
-    private val cameraActivityResultLauncher =
+    private val galleryLauncher =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-            if (result.resultCode == AppCompatActivity.RESULT_OK) {
-                iv_cover.setImageURI(uri)
-            } else {
-                Toast.makeText(requireActivity().getApplicationContext(), "Cancelado por el usuario", Toast.LENGTH_SHORT)
-                    .show()
+            if (result.resultCode == RESULT_OK) {
+                imagePickerHelper.handleGalleryResult(result.data)
+            }
+        }
+
+    private val cameraLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            if (result.resultCode == RESULT_OK) {
+                imagePickerHelper.handleCameraResult()
             }
         }
 

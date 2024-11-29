@@ -25,7 +25,7 @@
             android:name=".view.stop.PostStopActivity"
             android:exported="false" />
         <activity
-            android:name=".view.trip.MediumActivity"
+            android:name=".view.tripExtra.MediumActivity"
             android:exported="false" />
         <activity
             android:name=".view.trip.CreateFromImgActivity"

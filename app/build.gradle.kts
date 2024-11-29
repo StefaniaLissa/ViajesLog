@@ -72,6 +72,7 @@ dependencies {
     implementation(libs.androidx.navigation.fragment.ktx)
     implementation(libs.androidx.navigation.ui.ktx)
     implementation(platform(libs.androidx.compose.compose.bom2))
+    implementation(libs.androidx.swiperefreshlayout)
     androidTestImplementation(platform(libs.androidx.compose.compose.bom2))
     androidTestImplementation(platform(libs.androidx.compose.compose.bom.v20240800))
     implementation(libs.androidx.lifecycle.livedata.ktx)
@@ -103,7 +104,7 @@ dependencies {
     implementation (libs.places.ktx)
 
     implementation (libs.glide)
-    implementation (libs.androidx.exifinterface)
+    implementation (libs.androidx.exifinterface.v132)
     implementation(kotlin("script-runtime"))
     implementation(libs.okhttp)
 

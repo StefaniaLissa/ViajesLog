@@ -1,23 +1,17 @@
 package com.tfg.viajeslog.view.stop
 
-import android.Manifest
+import com.tfg.viajeslog.helper.ImagePickerHelper
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
-import android.content.ContentValues
-import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
-import android.provider.MediaStore
 import android.util.Log
 import android.view.View
 import android.widget.*
-import androidx.activity.result.ActivityResult
-import androidx.activity.result.ActivityResultCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
 import androidx.core.view.isVisible
 import androidx.lifecycle.ViewModelProvider
@@ -52,8 +46,7 @@ class PostStopActivity : AppCompatActivity() {
     // Views
     private lateinit var etName: EditText
     private lateinit var etDescription: EditText
-    private lateinit var btnGallery: Button
-    private lateinit var btnCamera: Button
+    private lateinit var btnUpload: Button
     private lateinit var rvImages: RecyclerView
     private lateinit var tvDate: TextView
     private lateinit var tvTime: TextView
@@ -80,6 +73,9 @@ class PostStopActivity : AppCompatActivity() {
     private var isEditMode: Boolean = false
     private var calendar = Calendar.getInstance()
 
+    // Helper
+    private lateinit var imagePickerHelper: ImagePickerHelper
+
     // Places
     private var placeFragment: AutocompleteSupportFragment? = null
     private var idPlace: String = ""
@@ -105,6 +101,23 @@ class PostStopActivity : AppCompatActivity() {
             mode = MODE_CREATE
             setupForNewStop() // Preparar para crear una nueva parada
         }
+
+        // Inicializar com.tfg.viajeslog.helper.ImagePickerHelper
+        imagePickerHelper = ImagePickerHelper(
+            context = this,
+            singleImageMode = false, // Permitimos múltiples imágenes para los stops
+            onImagePicked = { uris ->
+                // Manejo de imágenes seleccionadas
+                uris.forEach { uri ->
+                    if (!imagesList.contains(uri.toString())) {
+                        newImages.add(uri.toString())
+                        imagesList.add(uri.toString())
+                    }
+                }
+                sv_images.isVisible = imagesList.isNotEmpty()
+                adapter.notifyDataSetChanged()
+            }
+        )
     }
 
     private fun checkEditingState(tripID: String, stopID: String, userName: String) {
@@ -142,8 +155,7 @@ class PostStopActivity : AppCompatActivity() {
     private fun init() {
         etName = findViewById(R.id.et_name)
         etDescription = findViewById(R.id.et_description)
-        btnGallery = findViewById(R.id.btn_gallery)
-        btnCamera = findViewById(R.id.btn_camera)
+        btnUpload = findViewById(R.id.btn_upload)
         rvImages = findViewById(R.id.rv_images)
         sv_images = findViewById(R.id.sv_images)
         tvDate = findViewById(R.id.tv_date)
@@ -208,7 +220,10 @@ class PostStopActivity : AppCompatActivity() {
     private fun setupForNewStop() {
         //Cargar Fecha y Hora actual
         calendar = Calendar.getInstance()
-        tvDate.text = SimpleDateFormat("dd 'de' MMMM 'de' yyyy", Locale.getDefault() ).format(calendar.timeInMillis)
+        tvDate.text = SimpleDateFormat(
+            "dd 'de' MMMM 'de' yyyy",
+            Locale.getDefault()
+        ).format(calendar.timeInMillis)
         tvTime.text = SimpleDateFormat("HH:mm").format(calendar.timeInMillis)
         timestampFb = Timestamp(calendar.time)
     }
@@ -267,7 +282,8 @@ class PostStopActivity : AppCompatActivity() {
                     calendar.set(Calendar.HOUR_OF_DAY, hour)
                     calendar.set(Calendar.MINUTE, minute)
 
-                    tvTime.text = SimpleDateFormat("HH:mm", Locale.getDefault()).format(calendar.time)
+                    tvTime.text =
+                        SimpleDateFormat("HH:mm", Locale.getDefault()).format(calendar.time)
 
                     // Actualizar el Timestamp global
                     timestampFb = Timestamp(calendar.time)
@@ -277,28 +293,12 @@ class PostStopActivity : AppCompatActivity() {
             ).show()
         }
 
-        // Gallery
-        btnGallery.setOnClickListener {
-            if (ContextCompat.checkSelfPermission(
-                    applicationContext, Manifest.permission.READ_EXTERNAL_STORAGE
-                ) == PackageManager.PERMISSION_GRANTED
-            ) {
-                openGallery()
-            } else {
-                galleryPermission.launch(Manifest.permission.READ_EXTERNAL_STORAGE)
-            }
-        }
-
-        // Camera
-        btnCamera.setOnClickListener {
-            if (ContextCompat.checkSelfPermission(
-                    applicationContext, Manifest.permission.CAMERA
-                ) == PackageManager.PERMISSION_GRANTED
-            ) {
-                openCamera()
-            } else {
-                cameraPermission.launch(Manifest.permission.CAMERA)
-            }
+        btnUpload.setOnClickListener {
+            imagePickerHelper.showImagePickerDialog(
+                galleryLauncher = galleryLauncher,
+                cameraLauncher = cameraLauncher,
+                permissionLauncher = permissionLauncher
+            )
         }
 
         // Save or Update
@@ -325,7 +325,7 @@ class PostStopActivity : AppCompatActivity() {
             // Crear una fecha máxima válida usando Calendar
             val maxDate = Calendar.getInstance().apply {
                 set(9999, Calendar.DECEMBER, 31, 23, 59, 59)
-            // Año 9999, mes diciembre (0-based), día 31, último segundo del día
+                // Año 9999, mes diciembre (0-based), día 31, último segundo del día
             }.time
 
             // Convertir la fecha a un Timestamp
@@ -349,22 +349,22 @@ class PostStopActivity : AppCompatActivity() {
 
             // Actualizar en la base de datos
             db.collection("trips").document(tripID).update(
-                    mapOf(
-                        "initDate" to newInitDate,
-                        "endDate" to newEndDate,
-                        "duration" to durationInDays
-                    )
-                ).addOnSuccessListener {
-                    Toast.makeText(
-                        applicationContext, "Fechas y duración actualizadas", Toast.LENGTH_SHORT
-                    ).show()
-                }.addOnFailureListener { ex ->
-                    Toast.makeText(
-                        applicationContext,
-                        "Error al actualizar fechas: ${ex.message}",
-                        Toast.LENGTH_SHORT
-                    ).show()
-                }
+                mapOf(
+                    "initDate" to newInitDate,
+                    "endDate" to newEndDate,
+                    "duration" to durationInDays
+                )
+            ).addOnSuccessListener {
+                Toast.makeText(
+                    applicationContext, "Fechas y duración actualizadas", Toast.LENGTH_SHORT
+                ).show()
+            }.addOnFailureListener { ex ->
+                Toast.makeText(
+                    applicationContext,
+                    "Error al actualizar fechas: ${ex.message}",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
         }
     }
 
@@ -418,10 +418,10 @@ class PostStopActivity : AppCompatActivity() {
         }
 
         // Actualizar datos de Google Places
-        idPlace         = stop.idPlace!!
-        namePlace       = stop.namePlace!!
-        addressPlace    = stop.addressPlace!!
-        geoPoint        = stop.geoPoint!!
+        idPlace = stop.idPlace!!
+        namePlace = stop.namePlace!!
+        addressPlace = stop.addressPlace!!
+        geoPoint = stop.geoPoint!!
 
         // Actualizar imágenes
         imagesList.clear()
@@ -480,7 +480,7 @@ class PostStopActivity : AppCompatActivity() {
     private fun uploadImages(stopId: String) {
 
         // Modo Creación
-        if (!isEditMode){
+        if (!isEditMode) {
             newImages.addAll(imagesList)
             imagesToDelete.clear()
         }
@@ -541,12 +541,6 @@ class PostStopActivity : AppCompatActivity() {
         }
     }
 
-//    override fun onResume() {
-//        super.onResume()
-//        if (mode == MODE_EDIT) {
-//        }
-//    }
-
     private fun clearEditingState(tripID: String, stopID: String?) {
         val stopDoc = db.collection("trips").document(tripID).collection("stops").document(stopID!!)
         stopDoc.update("editing", null).addOnFailureListener {
@@ -554,80 +548,27 @@ class PostStopActivity : AppCompatActivity() {
         }
     }
 
-    private fun openGallery() {
-        val intent = Intent(Intent.ACTION_PICK)
-        intent.type = "image/*"
-        intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
-        galleryActivityResultLauncher.launch(intent)
-    }
 
-    private fun openCamera() {
-        val values = ContentValues()
-        uri = contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
-
-        val intent = Intent(MediaStore.ACTION_IMAGE_CAPTURE)
-        intent.putExtra(MediaStore.EXTRA_OUTPUT, uri)
-        cameraActivityResultLauncher.launch(intent)
-    }
-
-    private val galleryActivityResultLauncher =
-        registerForActivityResult(ActivityResultContracts.StartActivityForResult(),
-            ActivityResultCallback<ActivityResult> { result ->
-                if (result.resultCode == RESULT_OK) {
-                    result.data?.let { data ->
-                        data.clipData?.let {
-                            for (i in 0 until it.itemCount) {
-                                val imageUri = it.getItemAt(i).uri.toString()
-                                newImages.add(imageUri)
-                                imagesList.add(imageUri)
-                            }
-                        } ?: data.data?.let { uri ->
-                            val imageUri = uri.toString()
-                            newImages.add(imageUri)
-                            imagesList.add(imageUri)
-                        }
-                    }
-                    sv_images.isVisible = true // Make the ScrollView visible
-                    adapter.notifyDataSetChanged()
-                }
-            })
-
-    private val cameraActivityResultLauncher = registerForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        if (result.resultCode == AppCompatActivity.RESULT_OK) {
-            uri?.let { imagesList.add(it.toString()) }
-            sv_images.isVisible = true // Make the ScrollView visible
-            adapter.notifyDataSetChanged()
-        }
-    }
-
-    private val galleryPermission =
-        registerForActivityResult(ActivityResultContracts.RequestPermission()) { permission ->
-            if (permission) {
-                openGallery()
-            } else {
-                Toast.makeText(
-                    applicationContext,
-                    "El permiso para acceder a la galería no ha sido concedido",
-                    Toast.LENGTH_SHORT
-                ).show()
+    private val permissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
+            if (!isGranted) {
+                Toast.makeText(this, "Permiso denegado. Vuelva a intentarlo.", Toast.LENGTH_SHORT).show()
             }
         }
 
-
-    private val cameraPermission =
-        registerForActivityResult(ActivityResultContracts.RequestPermission()) { permission ->
-            if (permission) {
-                openCamera()
-            } else {
-                Toast.makeText(
-                    applicationContext,
-                    "El permiso para acceder a la cámara no ha sido concedido",
-                    Toast.LENGTH_SHORT
-                ).show()
+    private val galleryLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            if (result.resultCode == RESULT_OK) {
+                imagePickerHelper.handleGalleryResult(result.data)
             }
-
         }
+
+    private val cameraLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            if (result.resultCode == RESULT_OK) {
+                imagePickerHelper.handleCameraResult()
+            }
+        }
+
 
 }

@@ -7,7 +7,7 @@
     android:layout_gravity="center"
     android:background="@color/yellow"
     android:orientation="vertical"
-    tools:context=".view.trip.AlbumFragment">
+    tools:context=".view.tripExtra.AlbumFragment">
 
     <androidx.appcompat.widget.Toolbar
         android:id="@+id/toolbar"

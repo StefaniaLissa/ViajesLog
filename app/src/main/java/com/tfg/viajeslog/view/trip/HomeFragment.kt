@@ -2,13 +2,11 @@ package com.tfg.viajeslog.view.trip
 
 import android.content.Intent
 import android.os.Bundle
-import android.util.Log
 import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
-import androidx.lifecycle.Observer
 import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -16,8 +14,6 @@ import com.tfg.viajeslog.R
 import com.tfg.viajeslog.view.adapters.TripAdapter
 import com.tfg.viajeslog.viewmodel.TripViewModel
 import com.google.android.material.floatingactionbutton.FloatingActionButton
-
-//TODO: Agregar Reconocimiento de Lugares significativos de un viaje en carátula
 
 class HomeFragment : Fragment() {
 
@@ -69,20 +65,6 @@ class HomeFragment : Fragment() {
         fab_create.setOnClickListener {
             val intent = Intent(activity, CreateTripActivity::class.java)
             startActivity(intent)
-        }
-
-
-    }
-
-    override fun onResume() {
-        super.onResume()
-        tripViewModel.allTrips.observe(viewLifecycleOwner) {
-            tripAdapter.updateTripList(it.toMutableList())
-            if (it.isEmpty()) {
-                tv_no_trip.visibility = View.VISIBLE
-            } else {
-                tv_no_trip.visibility = View.GONE
-            }
         }
 
     }

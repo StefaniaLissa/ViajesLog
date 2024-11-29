@@ -1,9 +1,7 @@
 package com.tfg.viajeslog.view.trip
 
-import android.Manifest
-import android.content.Intent
+import com.tfg.viajeslog.helper.ImagePickerHelper
 import android.content.pm.PackageManager
-import android.net.Uri
 import android.os.Bundle
 import android.view.View
 import android.widget.Button
@@ -11,17 +9,12 @@ import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
-import androidx.activity.result.ActivityResult
-import androidx.activity.result.ActivityResultCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
 import androidx.lifecycle.ViewModelProvider
-import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import com.google.android.gms.tasks.Task
 import com.google.android.libraries.places.api.Places
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FirebaseFirestore
@@ -32,12 +25,8 @@ import com.tfg.viajeslog.view.adapters.ImageAdapter
 import com.tfg.viajeslog.view.adapters.StopAdapter
 import com.tfg.viajeslog.viewmodel.StopViewModel
 import java.util.Calendar
-import java.util.Date
-
 
 class CreateFromImgActivity : AppCompatActivity() {
-
-    private var uri: Uri? = null
 
     private lateinit var rv_images: RecyclerView
     private lateinit var img_adapter: ImageAdapter
@@ -54,6 +43,8 @@ class CreateFromImgActivity : AppCompatActivity() {
     private lateinit var tripID: String
     private lateinit var db: FirebaseFirestore
 
+    // Helper
+    private lateinit var imagePickerHelper: ImagePickerHelper
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -61,22 +52,29 @@ class CreateFromImgActivity : AppCompatActivity() {
         setContentView(R.layout.activity_create_from_img)
         init()
 
-        btn_upload.setOnClickListener {
-            if (ContextCompat.checkSelfPermission(
-                    applicationContext, Manifest.permission.READ_EXTERNAL_STORAGE
-                ) == PackageManager.PERMISSION_GRANTED
-            ) {
-                openGallery()
-            } else {
-                galleryPermission.launch(Manifest.permission.READ_EXTERNAL_STORAGE)
+        // Inicializar com.tfg.viajeslog.helper.ImagePickerHelper
+        imagePickerHelper = ImagePickerHelper(
+            context = this,
+            singleImageMode = false, // Permitir selección múltiple
+            onImagePicked = { uris ->
+                // Manejar imágenes seleccionadas
+                if (uris.isNotEmpty()) {
+                    imagesList.addAll(uris.map { it.toString() })
+                    img_adapter.notifyDataSetChanged()
+                    btn_process.visibility = View.VISIBLE
+                }
             }
+        )
+
+        btn_upload.setOnClickListener {
+            imagePickerHelper.showImagePickerDialog(
+                galleryLauncher = galleryLauncher,
+                cameraLauncher = cameraLauncher,
+                permissionLauncher = permissionLauncher
+            )
         }
 
         btn_process.setOnClickListener {
-            tv_instructions.visibility = View.GONE
-            tv_instructions2.visibility = View.VISIBLE
-            btn_process.visibility = View.GONE
-            btn_save.visibility = View.VISIBLE
 
             // Add stops from selected images
             val apiKey = applicationContext.packageManager.getApplicationInfo(
@@ -92,10 +90,38 @@ class CreateFromImgActivity : AppCompatActivity() {
                     uri.toUri(), contentResolver, apiKey, Places.createClient(this)
                 )
             }
-            sv_images.visibility = View.GONE
-            btn_upload.visibility = View.GONE
-            btn_process.visibility = View.GONE
 
+            stopViewModel.stops.observe(this) { stops ->
+                if (!stops.isNullOrEmpty()) {
+                    // Se encontraron stops
+                    stopAdapter.updateStopList(stops)
+                    tv_instructions.visibility = View.GONE
+                    btn_process.visibility = View.GONE
+                    sv_images.visibility = View.GONE
+                    btn_upload.visibility = View.GONE
+                    btn_process.visibility = View.GONE
+                    tv_instructions2.visibility = View.VISIBLE
+                    btn_save.visibility = View.VISIBLE
+                }
+            }
+
+            stopViewModel.error.observe(this) { errorMessage ->
+                errorMessage?.let {
+                    //Toast.makeText(this, it, Toast.LENGTH_LONG).show()
+                    // No se encontraron stops
+                    Toast.makeText(
+                        this,
+                        "No se encontraron datos en las imágenes.",
+                        Toast.LENGTH_LONG
+                    ).show()
+                    // Restablecer UI para permitir subir más imágenes
+                    imagesList.clear()
+                    img_adapter.notifyDataSetChanged()
+                    sv_images.visibility = View.VISIBLE
+                    btn_upload.visibility = View.VISIBLE
+                    btn_process.visibility = View.GONE
+                }
+            }
         }
 
         btn_save.setOnClickListener {
@@ -121,13 +147,22 @@ class CreateFromImgActivity : AppCompatActivity() {
                         val referenceStorage =
                             FirebaseStorage.getInstance().getReference(rutaImagen)
                         referenceStorage.putFile(stop.photos!![0].toUri())
-                            .addOnSuccessListener { tarea ->
-                                val uriTarea: Task<Uri> = tarea.storage.downloadUrl
-                                while (!uriTarea.isSuccessful);
-                                val url = "${uriTarea.result}"
-                                UpdateFirestore(url, documentReference.id)
-
-                            }.addOnFailureListener { e ->
+                            .addOnSuccessListener { task ->
+                                task.storage.downloadUrl.addOnSuccessListener { uri ->
+                                    val url = uri.toString()
+                                    UpdateFirestore(
+                                        url,
+                                        documentReference.id
+                                    ) // Usa la URL obtenida
+                                }.addOnFailureListener { e ->
+                                    Toast.makeText(
+                                        applicationContext,
+                                        "Error al obtener la URL de descarga: ${e.message}",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                }
+                            }
+                            .addOnFailureListener { e ->
                                 Toast.makeText(
                                     applicationContext,
                                     "No se ha podido subir la imagen: ${e.message}",
@@ -137,7 +172,14 @@ class CreateFromImgActivity : AppCompatActivity() {
 
                         //Fecha de Inicio del Viaje Portada
                         val calendar = Calendar.getInstance()
-                        calendar.set(9999, Calendar.DECEMBER, 31, 23, 59, 59) // Año 9999, último día
+                        calendar.set(
+                            9999,
+                            Calendar.DECEMBER,
+                            31,
+                            23,
+                            59,
+                            59
+                        ) // Año 9999, último día
                         calendar.set(Calendar.MILLISECOND, 999) // Último milisegundo
                         val endDate = Timestamp(calendar.time)
                         db.collection("trips").document(tripID).get().addOnCompleteListener {
@@ -161,7 +203,6 @@ class CreateFromImgActivity : AppCompatActivity() {
                             .show()
                     }
 
-                finish()
             }
         }
     }
@@ -176,79 +217,28 @@ class CreateFromImgActivity : AppCompatActivity() {
         sv_images = findViewById(R.id.sv_images)
         rv_images = findViewById(R.id.rv_images)
         imagesList = ArrayList()
-        img_adapter = ImageAdapter(imagesList)
-        rv_images.layoutManager = GridLayoutManager(this, 3)
+        img_adapter = ImageAdapter(imagesList) { imageUrl ->
+            imagesList.remove(imageUrl) // Eliminar de la lista general
+            img_adapter.notifyDataSetChanged()
+        }
+
+        val layoutManager =
+            LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
+        rv_images.layoutManager = layoutManager
         rv_images.adapter = img_adapter
 
         rv_stops = findViewById(R.id.rv_stops)
+        rv_stops.isClickable = false
         rv_stops.layoutManager = LinearLayoutManager(this)
         rv_stops.setHasFixedSize(true)
-        stopAdapter = StopAdapter()
+        stopAdapter = StopAdapter(isClickable = false)
         rv_stops.adapter = stopAdapter
 
         stopViewModel = ViewModelProvider(this).get(StopViewModel::class.java)
-        stopViewModel.stops.observe(this) { stops ->
-            stopAdapter.updateStopList(stops)
-        }
-        stopViewModel.error.observe(this) { errorMessage ->
-            errorMessage?.let {
-                Toast.makeText(this, it, Toast.LENGTH_LONG).show()
-            }
-        }
 
         //Get Trip Intent
         tripID = intent.getStringExtra("tripID").toString()
         db = FirebaseFirestore.getInstance()
-    }
-
-    private fun openGallery() {
-        val intent = Intent(Intent.ACTION_PICK)
-        intent.type = "image/*"
-        intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
-        galleryActivityResultLauncher.launch(intent)
-    }
-
-    private val galleryPermission =
-        registerForActivityResult(ActivityResultContracts.RequestPermission()) { permission ->
-            if (permission) {
-                openGallery()
-            } else {
-                Toast.makeText(
-                    applicationContext,
-                    "El permiso para acceder a la galería no ha sido concedido",
-                    Toast.LENGTH_SHORT
-                ).show()
-            }
-        }
-
-    private val galleryActivityResultLauncher = registerForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        if (result.resultCode == RESULT_OK) {
-            val data = result.data
-            uri = data!!.data
-            if (data == null) {
-                Toast.makeText(this, "No se seleccionaron imágenes", Toast.LENGTH_SHORT).show()
-            }
-            //iv_cover.setImageURI(uri)
-            if (data.clipData != null) {
-                for (i in 0 until data.clipData!!.itemCount) {
-                    val imageUri = data.clipData!!.getItemAt(i).uri.toString()
-                    imagesList.add(imageUri)
-                }
-            } else {
-                val imageUri = data.data.toString()
-                imagesList.add(imageUri)
-            }
-            img_adapter.notifyDataSetChanged() // Notify adapter of dataset changes
-            btn_process.visibility = View.VISIBLE
-        } else {
-            Toast.makeText(
-                applicationContext, "Cancelado por el usuario", Toast.LENGTH_SHORT
-            ).show()
-
-        }
-
     }
 
     private fun UpdateFirestore(url: String, stopID: String) {
@@ -256,14 +246,46 @@ class CreateFromImgActivity : AppCompatActivity() {
             "url" to url
         )
         FirebaseFirestore.getInstance().collection("trips")
-            .document(intent.getStringExtra("trip").toString()).collection("stops").document(stopID)
-            .collection("photos").add(photo).addOnFailureListener { e ->
+            .document(tripID).collection("stops").document(stopID)
+            .collection("photos").add(photo)
+            .addOnSuccessListener {
+                Toast.makeText(
+                    applicationContext,
+                    "Se ha actualizado su imagen con éxito",
+                    Toast.LENGTH_SHORT
+                ).show()
+                finish()
+            }
+            .addOnFailureListener { e ->
                 Toast.makeText(
                     applicationContext,
                     "No se ha actualizado su imagen debido a: ${e.message}",
                     Toast.LENGTH_SHORT
                 ).show()
+                finish()
             }
     }
+
+    private val permissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
+            if (isGranted) {
+            } else {
+                Toast.makeText(this, "Permiso denegado. Vuelva a intentarlo.", Toast.LENGTH_SHORT).show()
+            }
+        }
+
+    private val galleryLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            if (result.resultCode == RESULT_OK) {
+                imagePickerHelper.handleGalleryResult(result.data)
+            }
+        }
+
+    private val cameraLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            if (result.resultCode == RESULT_OK) {
+                imagePickerHelper.handleCameraResult()
+            }
+        }
 
 }

@@ -49,7 +49,7 @@
     <string name="categor_a">Categoría:</string>
     <string name="notas">Notas...</string>
     <string name="camara">Cámara</string>
-    <string name="galer_a">Galería</string>
+    <string name="galeria">Galería</string>
     <string name="hora">Hora</string>
     <string name="nombre_el_punto_de_inter_s">Nombre del Punto de Interés</string>
     <string name="google">Google</string>
@@ -72,4 +72,5 @@
     <string name="category">Category</string>
     <string name="no_fotos">Todavía no hay fotos 🥲</string>
     <string name="user_not_found">Nombre de Usuario No Encontrado</string>
+    <string name="img_dialog">AGREGAR DESDE:</string>
 </resources>

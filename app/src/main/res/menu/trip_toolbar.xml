@@ -5,13 +5,19 @@
         android:id="@+id/album"
         android:icon="@drawable/ic_album"
         android:title="Album"
-        app:showAsAction="ifRoom" />
+        app:showAsAction="always" />
 
     <item
         android:id="@+id/edit"
         android:icon="@drawable/ic_edit"
         android:title="Editar Viaje"
-        app:showAsAction="ifRoom" />
+        app:showAsAction="always" />
+
+    <item
+        android:id="@+id/delete"
+        android:icon="@drawable/ic_delete"
+        android:title="@string/eliminar"
+        app:showAsAction="always" />
 
     <item
         android:id="@+id/share"

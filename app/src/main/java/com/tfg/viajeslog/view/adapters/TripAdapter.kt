@@ -1,5 +1,6 @@
 package com.tfg.viajeslog.view.adapters
 
+import android.content.Context
 import android.content.Intent
 import android.util.Log
 import android.view.LayoutInflater
@@ -7,6 +8,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.TextView
+import androidx.appcompat.app.AlertDialog
 import androidx.cardview.widget.CardView
 import androidx.core.view.isVisible
 import androidx.lifecycle.LifecycleOwner
@@ -24,8 +26,9 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-class TripAdapter() : RecyclerView.Adapter<TripAdapter.TripViewHolder>() {
-    //    private val tripArrayList = ArrayList<Trip>()
+class TripAdapter(
+    private val isReadOnly: Boolean = false
+) : RecyclerView.Adapter<TripAdapter.TripViewHolder>() {
     private val tripArrayList = mutableListOf<Trip>()
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): TripViewHolder {
@@ -59,45 +62,48 @@ class TripAdapter() : RecyclerView.Adapter<TripAdapter.TripViewHolder>() {
         if (trip.image != null) {
             // Imagen Cover del Viaje
             Glide.with(holder.itemView.context).load(trip.image)
-                .placeholder(R.drawable.ic_downloading).error(R.drawable.ic_error).centerCrop()
+                .placeholder(R.drawable.ic_downloading)
+                .error(R.drawable.ic_error).centerCrop()
                 .into(holder.image)
+        } else {
+            holder.image.setImageResource(R.drawable.ic_cover_background)
         }
 
         holder.itemView.setOnClickListener {
             val intent = Intent(holder.itemView.context, DetailedTripActivity::class.java)
             intent.putExtra("id", trip.id)
-            intent.putExtra("initDate", trip.initDate)
-            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            intent.putExtra("isReadOnly", isReadOnly)
             holder.itemView.context.startActivity(intent)
         }
 
-
         holder.delete.visibility = View.GONE
-        holder.itemView.setOnLongClickListener {
-            if (holder.delete.isVisible) {
-                holder.delete.visibility = View.GONE
-            } else {
-                holder.delete.visibility = View.VISIBLE
+
+        if(!isReadOnly) {
+            holder.itemView.setOnLongClickListener {
+                if (holder.delete.isVisible) {
+                    holder.delete.visibility = View.GONE
+                } else {
+                    holder.delete.visibility = View.VISIBLE
+                }
+                true
             }
-            true
-        }
 
-        holder.bt_delete.setOnClickListener {
-            val tripId = trip.id!!
-            val currentUserId = FirebaseAuth.getInstance().currentUser?.uid
-            val db = FirebaseFirestore.getInstance()
+            holder.bt_delete.setOnClickListener {
+                val tripId = trip.id!!
+                val currentUserId = FirebaseAuth.getInstance().currentUser?.uid
+                val db = FirebaseFirestore.getInstance()
 
-            // Verificar si el usuario actual es administrador
-            db.collection("trips").document(tripId).get().addOnSuccessListener { document ->
+                // Verificar si el usuario actual es administrador
+                db.collection("trips").document(tripId).get().addOnSuccessListener { document ->
                     if (document.exists()) {
                         val adminId =
                             document.getString("admin") // Asegúrate de que el campo "admin" contenga el UID del administrador
                         if (currentUserId == adminId) {
                             // Usuario es administrador: Eliminar todo
-                            deleteTripCompletely(tripId, position)
+                            showDeleteConfirmationDialog(holder) { deleteTripCompletely(tripId, position) }
                         } else {
                             // Usuario no es administrador: Solo eliminar de "members"
-                            deleteFromMembers(tripId, currentUserId, position)
+                                showDeleteConfirmationDialog(holder) { deleteFromMembers(tripId, currentUserId, position) }
                         }
                     }
                 }.addOnFailureListener { e ->
@@ -105,8 +111,25 @@ class TripAdapter() : RecyclerView.Adapter<TripAdapter.TripViewHolder>() {
                 }
 
 
+            }
         }
     }
+
+    private fun showDeleteConfirmationDialog( holder: TripViewHolder, onConfirm: () -> Unit) {
+        val builder = AlertDialog.Builder(holder.bt_delete.context, R.style.CustomDialogTheme)
+        builder.setTitle("Confirmar eliminación")
+        builder.setMessage("¿Estás seguro de que deseas eliminar este viaje? Esta acción no se puede deshacer.")
+        builder.setPositiveButton("Eliminar") { dialog, _ ->
+            onConfirm()
+            dialog.dismiss()
+        }
+        builder.setNegativeButton("Cancelar") { dialog, _ ->
+            holder.delete.visibility = View.GONE
+            dialog.dismiss()
+        }
+        builder.create().show()
+    }
+
 
     private fun deleteFromMembers(tripId: String, userId: String?, position: Int) {
         val db = FirebaseFirestore.getInstance()
@@ -161,8 +184,6 @@ class TripAdapter() : RecyclerView.Adapter<TripAdapter.TripViewHolder>() {
 
                 // 4. Eliminar el documento del viaje una vez que las imágenes y "members" se eliminaron
                 db.collection("trips").document(tripId).delete().addOnSuccessListener {
-//                            tripArrayList.removeAt(position)
-//                            this.notifyDataSetChanged()
                 }.addOnFailureListener { e ->
                     Log.e("DeleteTrip", "Error al eliminar el viaje: ${e.message}")
                 }
@@ -178,7 +199,6 @@ class TripAdapter() : RecyclerView.Adapter<TripAdapter.TripViewHolder>() {
     fun updateTripList(tripList: List<Trip>) {
         this.tripArrayList.clear()
         this.tripArrayList.addAll(tripList)
-        Log.w("BD", "loadTripsAdapter")
         this.notifyDataSetChanged()
     }
 

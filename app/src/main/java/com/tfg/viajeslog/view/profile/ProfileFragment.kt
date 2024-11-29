@@ -75,7 +75,7 @@ class ProfileFragment : Fragment() {
                     .error(R.drawable.ic_error).centerCrop().into(iv_imagen)
             } else {
                 iv_imagen.contentDescription = null
-                iv_imagen.setImageResource(R.drawable.ic_bag) // Set a placeholder image
+                iv_imagen.setImageResource(R.drawable.ic_user_placeholder)
             }
 
             tv_name.text = user.name
@@ -86,8 +86,4 @@ class ProfileFragment : Fragment() {
         return view
     }
 
-    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-        super.onViewCreated(view, savedInstanceState)
-
-    }
 }

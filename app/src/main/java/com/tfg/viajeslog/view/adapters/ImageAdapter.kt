@@ -21,7 +21,8 @@ class ImageAdapter(
 
     override fun onBindViewHolder(holder: ImageViewHolder, position: Int) {
         Glide.with(holder.itemView.context).load(images[position])
-            .placeholder(R.drawable.ic_downloading).error(R.drawable.ic_error)
+            .placeholder(R.drawable.ic_downloading)
+            .error(R.drawable.ic_error)
             .centerCrop() // Scale image to fill ImageView while maintaining aspect ratio
             .into(holder.image)
 
@@ -40,7 +41,6 @@ class ImageAdapter(
     override fun getItemCount(): Int {
         return images.size
     }
-
 
     class ImageViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         val image: ImageView = itemView.findViewById(R.id.imageView)

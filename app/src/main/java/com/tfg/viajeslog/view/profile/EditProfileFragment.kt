@@ -1,6 +1,7 @@
 package com.tfg.viajeslog.view.profile
 
-import ImagePickerHelper
+import com.tfg.viajeslog.helper.ImagePickerHelper
+import android.app.Activity.RESULT_OK
 import android.content.Intent
 import android.graphics.drawable.Drawable
 import android.net.Uri
@@ -20,7 +21,6 @@ import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.DataSource
@@ -28,7 +28,6 @@ import com.bumptech.glide.load.engine.GlideException
 import com.bumptech.glide.request.RequestListener
 import com.bumptech.glide.request.target.Target
 import com.tfg.viajeslog.R
-import com.google.android.gms.tasks.Task
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.firestore.FirebaseFirestore
@@ -39,21 +38,6 @@ import com.tfg.viajeslog.view.login.LoginActivity
 class EditProfileFragment : Fragment() {
 
     private lateinit var imagePickerHelper: ImagePickerHelper
-
-    // Lanzadores de resultados para galería y cámara
-    private val galleryLauncher =
-        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-            if (result.resultCode == AppCompatActivity.RESULT_OK) {
-                imagePickerHelper.handleGalleryResult(result.data)
-            }
-        }
-
-    private val cameraLauncher =
-        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-            if (result.resultCode == AppCompatActivity.RESULT_OK) {
-                imagePickerHelper.handleCameraResult()
-            }
-        }
 
     private lateinit var iv_imagen: ImageView
     private lateinit var iv_delete: ImageView
@@ -133,7 +117,9 @@ class EditProfileFragment : Fragment() {
                         return false
                     }
 
-                }).placeholder(R.drawable.ic_downloading).error(R.drawable.ic_error).centerCrop()
+                }).placeholder(R.drawable.ic_downloading)
+                .error(R.drawable.ic_error)
+                .centerCrop()
                 .into(iv_imagen)
         }
         cb_online.isChecked = arguments?.getBoolean("public")!!
@@ -159,7 +145,11 @@ class EditProfileFragment : Fragment() {
 
         //New Image
         btn_new_image.setOnClickListener {
-            imagePickerHelper.showImagePickerDialog(galleryLauncher, cameraLauncher)
+            imagePickerHelper.showImagePickerDialog(
+                galleryLauncher = galleryLauncher,
+                cameraLauncher = cameraLauncher,
+                permissionLauncher = permissionLauncher
+            )
         }
 
         //Cambiar Contraseña
@@ -183,10 +173,20 @@ class EditProfileFragment : Fragment() {
                 //Save Image in Firebase Store
                 val path = "UserProfile/" + auth.uid
                 val referenceStorage = FirebaseStorage.getInstance().getReference(path)
-                referenceStorage.putFile(uri!!).addOnSuccessListener { task ->
-                    val uriTask: Task<Uri> = task.storage.downloadUrl
-                    val url = "${uriTask.result}"
-                    UpdateFirestore(url)
+                referenceStorage.putFile(uri!!).addOnSuccessListener { taskSnapshot ->
+                    // Obtiene la URL de descarga de la imagen subida
+                    taskSnapshot.storage.downloadUrl.addOnCompleteListener { uriTask ->
+                        if (uriTask.isSuccessful) {
+                            val url = uriTask.result.toString()
+                            UpdateFirestore(url)
+                        } else {
+                            Toast.makeText(
+                                context,
+                                "Error al obtener la URL de descarga: ${uriTask.exception?.message}",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                    }
                 }.addOnFailureListener { e ->
                     Toast.makeText(
                         context,
@@ -456,7 +456,7 @@ class EditProfileFragment : Fragment() {
                         }.addOnSuccessListener {
                             uri = null
                             Glide.with(this).clear(iv_imagen) // Borra cualquier caché
-                            iv_imagen.setImageResource(R.drawable.ic_viajes_log) // Placeholder predeterminado
+                            iv_imagen.setImageResource(R.drawable.ic_user_placeholder) // Placeholder predeterminado
                         }
                 }.addOnFailureListener { e ->
                     Toast.makeText(
@@ -503,5 +503,26 @@ class EditProfileFragment : Fragment() {
             }
         FirebaseFirestore.getInstance().collection("users").document(auth.uid!!)
     }
+
+    private val permissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
+            if (!isGranted) {
+                Toast.makeText(context, "Permiso denegado. Vuelva a intentarlo.", Toast.LENGTH_SHORT).show()
+            }
+        }
+
+    private val galleryLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            if (result.resultCode == RESULT_OK) {
+                imagePickerHelper.handleGalleryResult(result.data)
+            }
+        }
+
+    private val cameraLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            if (result.resultCode == RESULT_OK) {
+                imagePickerHelper.handleCameraResult()
+            }
+        }
 
 }

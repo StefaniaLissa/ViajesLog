@@ -3,6 +3,7 @@ activityVersion = "1.9.3"
 agp = "8.5.0"
 androidxComposeBom = "2024.11.00"
 androidxComposeBomVersion = "2024.11.00"
+androidxExifinterface = "1.3.2"
 constraintlayoutVersion = "2.2.0"
 coreSplashscreen = "1.0.1"
 exifinterface = "1.3.7"
@@ -38,6 +39,7 @@ placesKtx = "3.3.1"
 playServicesAuth = "21.2.0"
 playServicesMaps = "19.0.0"
 secretsGradlePlugin = "2.0.1"
+swiperefreshlayout = "1.1.0"
 
 [libraries]
 androidx-activity-v192 = { module = "androidx.activity:activity", version.ref = "activityVersion" }
@@ -47,6 +49,7 @@ androidx-constraintlayout-v214 = { module = "androidx.constraintlayout:constrain
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 androidx-core-splashscreen = { module = "androidx.core:core-splashscreen", version.ref = "coreSplashscreen" }
 androidx-exifinterface = { module = "androidx.exifinterface:exifinterface", version.ref = "exifinterface" }
+androidx-exifinterface-v132 = { module = "androidx.exifinterface:exifinterface", version.ref = "androidxExifinterface" }
 androidx-lifecycle-lifecycle-runtime-ktx = { module = "androidx.lifecycle:lifecycle-runtime-ktx", version.ref = "lifecycleLivedataKtx" }
 androidx-lifecycle-livedata-ktx = { module = "androidx.lifecycle:lifecycle-livedata-ktx", version.ref = "lifecycleLivedataKtx" }
 androidx-lifecycle-viewmodel-ktx = { module = "androidx.lifecycle:lifecycle-viewmodel-ktx", version.ref = "lifecycleLivedataKtx" }
@@ -85,6 +88,7 @@ places-ktx = { module = "com.google.maps.android:places-ktx", version.ref = "pla
 play-services-auth = { module = "com.google.android.gms:play-services-auth", version.ref = "playServicesAuth" }
 play-services-maps = { module = "com.google.android.gms:play-services-maps", version.ref = "playServicesMaps" }
 secrets-gradle-plugin = { module = "com.google.android.libraries.mapsplatform.secrets-gradle-plugin:secrets-gradle-plugin", version.ref = "secretsGradlePlugin" }
+androidx-swiperefreshlayout = { group = "androidx.swiperefreshlayout", name = "swiperefreshlayout", version.ref = "swiperefreshlayout" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

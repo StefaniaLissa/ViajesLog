@@ -1,9 +1,7 @@
 package com.tfg.viajeslog.viewmodel
 
-import android.app.Application
 import android.content.ContentResolver
 import android.net.Uri
-import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
@@ -57,21 +55,6 @@ class StopViewModel() : ViewModel() {
         return stopsCoordinates
     }
 
-    private val _coordinates = MutableLiveData<List<GeoPoint>>()
-    val coordinates: LiveData<List<GeoPoint>> = _coordinates
-
-    fun loadCoordinates(tripId: String) {
-        viewModelScope.launch {
-            try {
-                val coordList = ArrayList<GeoPoint>()
-                stopRepository.loadCoordinates(tripId, coordList)
-                _coordinates.postValue(coordList)
-            } catch (e: Exception) {
-                postError("Error loading coordinates: ${e.message}")
-            }
-        }
-    }
-
     val stops = MutableLiveData<List<Stop>>()
     private val stopList = mutableListOf<Stop>()
 
@@ -82,7 +65,7 @@ class StopViewModel() : ViewModel() {
                 stop?.let {
                     if (it.geoPoint != null) {
                         // Fetch Place Details
-                        stopRepository.fetchPlaceDetails(
+                        stopRepository.fetchPlace(
                             it.geoPoint!!.latitude,
                             it.geoPoint!!.longitude,
                             apiKey,
@@ -98,8 +81,7 @@ class StopViewModel() : ViewModel() {
                             }
                         }
                     } else {
-//                        stopList.add(it)
-//                        stops.postValue(stopList)
+                        _error.postValue("Failed to extract EXIF data")
                     }
                 } ?: run {
                     _error.postValue("Failed to extract EXIF data")

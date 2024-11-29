@@ -91,4 +91,10 @@
         <item name="android:textColor">@android:color/white</item>
         <item name="hintTextColor">@color/gray</item>
     </style>
+    <style name="CustomDialogImgTheme" parent="Theme.AppCompat.Light.Dialog">
+        <item name="android:backgroundDimEnabled">true</item> <!-- Habilita el oscurecimiento del fondo -->
+        <item name="android:windowBackground">@android:color/transparent</item> <!-- Fondo transparente -->
+        <item name="android:windowNoTitle">true</item> <!-- Sin título -->
+        <item name="android:windowIsFloating">true</item> <!-- Diseño flotante -->
+    </style>
 </resources>
