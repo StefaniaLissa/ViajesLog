@@ -28,5 +28,6 @@ data class Trip(
     var initDate:Timestamp?=null,
     var endDate:Timestamp?=null,
     var globalPlace:String?=null,
-    val duration: Int?=null
+    val duration: Int?=null,
+    val public:Boolean?=null
 )

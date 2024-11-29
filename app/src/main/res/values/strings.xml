@@ -73,4 +73,7 @@
     <string name="no_fotos">Todavía no hay fotos 🥲</string>
     <string name="user_not_found">Nombre de Usuario No Encontrado</string>
     <string name="img_dialog">AGREGAR DESDE:</string>
+    <string name="emailEnviado">Se ha enviado un enlace de recuperación a su correo electrónico.</string>
+    <string name="iniciar_sesion">INICIAR SESIÓN</string>
+    <string name="empty" />
 </resources>

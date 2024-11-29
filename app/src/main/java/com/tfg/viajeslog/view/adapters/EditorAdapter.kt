@@ -31,8 +31,7 @@ class EditorAdapter(
      * Infla el layout para cada elemento de la lista.
      */
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): EditorViewHolder {
-        val itemView = LayoutInflater.from(parent.context)
-            .inflate(R.layout.editor_item, parent, false) // Layout del editor
+        val itemView = LayoutInflater.from(parent.context).inflate(R.layout.editor_item, parent, false) // Layout del editor
         return EditorViewHolder(itemView)
     }
 
@@ -54,10 +53,10 @@ class EditorAdapter(
         // Cargar la imagen de perfil del editor usando Glide.
         if (!editor.image.isNullOrEmpty()) {
             Glide.with(holder.itemView.context)
-                .load(editor.image) // URL de la imagen.
-                .placeholder(R.drawable.ic_user_placeholder) // Imagen mientras carga.
-                .error(R.drawable.ic_error) // Imagen en caso de error.
-                .circleCrop() // Hace que la imagen sea circular.
+                .load(editor.image)                             // URL de la imagen.
+                .placeholder(R.drawable.ic_user_placeholder)    // Imagen mientras carga.
+                .error(R.drawable.ic_error)                     // Imagen en caso de error.
+                .circleCrop()                                   // Hace que la imagen sea circular.
                 .into(holder.ivImage)
         } else {
             // Si no hay imagen, usar una imagen predeterminada.
@@ -79,8 +78,8 @@ class EditorAdapter(
                     }
                     // Elimina al editor de la lista local.
                     editorsList.removeAt(position)
-                    onEditorRemoved(editor) // Notifica al fragmento del cambio.
-                    notifyItemChanged(position)  // Actualiza la vista del RecyclerView de esa posición eficientemente.
+                    onEditorRemoved(editor)         // Notifica al fragmento del cambio.
+                    notifyDataSetChanged()
                 }
         }
     }
@@ -90,9 +89,9 @@ class EditorAdapter(
      * @param userList Lista de usuarios editores.
      */
     fun updateEditorsList(userList: List<User>) {
-        this.editorsList.clear() // Limpia la lista actual.
-        this.editorsList.addAll(userList) // Agrega la nueva lista.
-        notifyDataSetChanged() // Notifica al RecyclerView que se actualizó la lista.
+        this.editorsList.clear()            // Limpia la lista actual.
+        this.editorsList.addAll(userList)   // Agrega la nueva lista.
+        notifyDataSetChanged()              // Notifica al RecyclerView que se actualizó la lista.
     }
 
     /**
@@ -101,10 +100,10 @@ class EditorAdapter(
      */
     class EditorViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         val email: TextView =
-            itemView.findViewById(R.id.tv_email)      // TextView para mostrar el correo.
+            itemView.findViewById(R.id.tv_email)   // TextView para mostrar el correo.
         val ivImage: ImageView =
             itemView.findViewById(R.id.iv_image)   // ImageView para la foto de perfil.
         val ivPlus: ImageView =
-            itemView.findViewById(R.id.iv_delete)   // Botón para eliminar al editor.
+            itemView.findViewById(R.id.iv_delete)  // Botón para eliminar al editor.
     }
 }

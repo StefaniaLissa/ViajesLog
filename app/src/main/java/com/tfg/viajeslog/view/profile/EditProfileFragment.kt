@@ -34,43 +34,43 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.storage.FirebaseStorage
 import com.tfg.viajeslog.view.login.LoginActivity
 
-@Suppress("DEPRECATION")
+/**
+ * Fragmento para editar el perfil del usuario.
+ * Permite cambiar nombre, correo electrónico, visibilidad pública, imagen de perfil,
+ * así como eliminar el perfil del usuario.
+ */
 class EditProfileFragment : Fragment() {
 
+    // Instancia del helper para seleccionar imágenes
     private lateinit var imagePickerHelper: ImagePickerHelper
 
-    private lateinit var iv_imagen: ImageView
-    private lateinit var iv_delete: ImageView
-    private lateinit var btn_new_image: Button
-    private lateinit var et_name: EditText
-    private lateinit var et_email: EditText
-    private lateinit var tv_alert: TextView
-    private lateinit var tv_delete: TextView
-    private lateinit var btn_save: Button
-    private lateinit var cb_online: CheckBox
-    private lateinit var btn_passw: Button
-    private lateinit var pb_img: ProgressBar
-    private var lv_public_old: Boolean = true
-    private var oldName: String = ""
-    private lateinit var pb_save: ProgressBar
+    // Declaración de vistas
+    private lateinit var iv_imagen:     ImageView       // Imagen del perfil
+    private lateinit var iv_delete:     ImageView       // Botón para eliminar la imagen de perfil
+    private lateinit var btn_new_image: Button          // Botón para seleccionar nueva imagen
+    private lateinit var et_name:       EditText        // Campo de texto para el nombre
+    private lateinit var et_email:      EditText        // Campo de texto para el correo electrónico
+    private lateinit var tv_alert:      TextView        // Mensaje de alerta
+    private lateinit var tv_delete:     TextView        // Mensaje para eliminar perfil
+    private lateinit var btn_save:      Button          // Botón para guardar cambios
+    private lateinit var cb_online:     CheckBox        // CheckBox para visibilidad pública
+    private lateinit var btn_passw:     Button          // Botón para cambiar contraseña
+    private lateinit var pb_img:        ProgressBar     // Barra de progreso para la imagen
+    private var lv_public_old:          Boolean = true  // Estado anterior de visibilidad pública
+    private var oldName:                String = ""     // Nombre anterior
+    private lateinit var pb_save:       ProgressBar     // Barra de progreso para guardar
 
-    private var uri: Uri? = null
-
-    private lateinit var auth: FirebaseAuth
-    var user: FirebaseUser? = null
-
-
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        arguments?.let {
-
-        }
-    }
+    private var uri: Uri? = null // URI de la nueva imagen seleccionada
+    private lateinit var auth: FirebaseAuth// Instancias de Firebase
+    var user: FirebaseUser? = null // Usuario autenticado
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
     ): View? {
+        // Inflar la vista del fragmento
         val view = inflater.inflate(R.layout.fragment_edit_profile, container, false)
+
+        // Inicialización de vistas
         iv_imagen = view.findViewById(R.id.iv_imagen)
         iv_delete = view.findViewById(R.id.iv_delete)
         btn_new_image = view.findViewById(R.id.btn_new_image)
@@ -84,14 +84,16 @@ class EditProfileFragment : Fragment() {
         pb_img = view.findViewById(R.id.pb_img)
         pb_save = view.findViewById(R.id.pb_save)
 
+        // Configurar autenticación y usuario actual
         auth = FirebaseAuth.getInstance()
-        user = FirebaseAuth.getInstance().currentUser
+        user = auth.currentUser
 
-        //Get User Intent
+        // Obtener información pasada al fragmento
         oldName = arguments?.getString("name").toString()
-        et_name.setText(oldName)
-        et_email.setText(arguments?.getString("email").toString())
+        et_name.setText(oldName) // Mostrar el nombre actual
+        et_email.setText(arguments?.getString("email").toString()) // Mostrar el correo actual
 
+        // Cargar imagen de perfil si existe
         if (arguments?.getString("image") != null) {
             pb_img.visibility = View.VISIBLE
             Glide.with(this).load(arguments?.getString("image").toString())
@@ -116,34 +118,36 @@ class EditProfileFragment : Fragment() {
                         pb_img.visibility = View.GONE
                         return false
                     }
-
-                }).placeholder(R.drawable.ic_downloading)
-                .error(R.drawable.ic_error)
-                .centerCrop()
-                .into(iv_imagen)
+                }).placeholder(R.drawable.ic_downloading)   // Placeholder mientras carga
+                .error(R.drawable.ic_error)                 // Imagen en caso de error
+                .centerCrop()                               // Escalar la imagen al centro
+                .into(iv_imagen)                            // Mostrar la imagen en el ImageView
         }
+
+        // Configurar visibilidad pública
         cb_online.isChecked = arguments?.getBoolean("public")!!
-        lv_public_old = cb_online.isChecked
+        lv_public_old = cb_online.isChecked // Guardar estado anterior
 
-
-        imagePickerHelper = ImagePickerHelper(context = requireContext(),
-            singleImageMode = true, // Cambiar a `false` si se permiten múltiples imágenes
+        // Configurar helper para seleccionar imágenes
+        imagePickerHelper = ImagePickerHelper(
+            context = requireContext(),
+            singleImageMode = true, // Permitir una sola imagen
             onImagePicked = { uris ->
-                // Manejo de imágenes seleccionadas
                 if (uris.isNotEmpty()) {
-                    uri = uris[0]
-                    iv_imagen.setImageURI(uri) // Mostrar imagen en la vista
+                    uri = uris[0] // Obtener URI de la imagen seleccionada
+                    iv_imagen.setImageURI(uri) // Mostrar imagen seleccionada
                 }
-            })
+            }
+        )
 
         return view
     }
 
+    // Configuración del comportamiento de botones y eventos
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        super.onCreate(savedInstanceState)
 
-        //New Image
+        // Botón para seleccionar nueva imagen
         btn_new_image.setOnClickListener {
             imagePickerHelper.showImagePickerDialog(
                 galleryLauncher = galleryLauncher,
@@ -160,17 +164,16 @@ class EditProfileFragment : Fragment() {
                 .commit()
         }
 
-        //Save Changes
+        // Guardar Cambios
         btn_save.setOnClickListener {
             pb_save.visibility = View.VISIBLE
             btn_save.visibility = View.GONE
 
-            //Validations
+            //Validacion de la Imágen de Perfil
             val isNewImage =
                 uri != null && uri.toString() != arguments?.getString("image").toString()
-
             if (isNewImage) {
-                //Save Image in Firebase Store
+                //Subir a Firebase Store
                 val path = "UserProfile/" + auth.uid
                 val referenceStorage = FirebaseStorage.getInstance().getReference(path)
                 referenceStorage.putFile(uri!!).addOnSuccessListener { taskSnapshot ->
@@ -228,9 +231,7 @@ class EditProfileFragment : Fragment() {
                             .signInWithEmailAndPassword(currentEmail!!, currentPassword)
 
                         credential.addOnSuccessListener {
-                            // Proceed to update email
                             user!!.updateEmail(newEmail).addOnSuccessListener {
-                                // Update in Firestore
                                 FirebaseFirestore.getInstance().collection("users")
                                     .document(user!!.uid).update("email", newEmail)
                                     .addOnFailureListener {
@@ -305,7 +306,7 @@ class EditProfileFragment : Fragment() {
                 requireContext(), R.style.CustomDialogTheme
             )
             builder.setTitle("Confirmación")
-            builder.setMessage("¿Está seguro que quiere eliminar su cuenta? Esta acción no se puede deshacer.")
+            builder.setMessage("¿Está seguro de que desea eliminar su cuenta? Esta acción no se puede deshacer.")
 
             builder.setPositiveButton("Eliminar") { dialog, _ ->
                 dialog.dismiss()
@@ -314,29 +315,32 @@ class EditProfileFragment : Fragment() {
                 val db = FirebaseFirestore.getInstance()
                 val storage = FirebaseStorage.getInstance()
 
-                // Step 1: Delete user's trips if they are an admin
+                // Paso 1: Eliminar los viajes del usuario si es administrador
                 db.collection("trips").whereEqualTo("admin", userId).get()
                     .addOnSuccessListener { tripsSnapshot ->
                         if (!tripsSnapshot.isEmpty) {
                             for (tripDoc in tripsSnapshot) {
                                 val tripId = tripDoc.id
 
-                                // Delete TripCover images
+                                // Eliminar imágenes de la portada del viaje
                                 val tripCoverRef = storage.reference.child("TripCover/$tripId/")
                                 tripCoverRef.listAll().addOnSuccessListener { listResult ->
                                     for (file in listResult.items) {
                                         file.delete().addOnFailureListener { e ->
                                             Log.e(
-                                                "Delete Error",
-                                                "Failed to delete trip cover: ${e.message}"
+                                                "Error",
+                                                "Error al eliminar portada del viaje: ${e.message}"
                                             )
                                         }
                                     }
                                 }.addOnFailureListener { e ->
-                                    Log.e("List Error", "Failed to list trip covers: ${e.message}")
+                                    Log.e(
+                                        "Error",
+                                        "Error al listar portadas del viaje: ${e.message}"
+                                    )
                                 }
 
-                                // Delete Stop images
+                                // Eliminar imágenes de las paradas
                                 db.collection("trips").document(tripId).collection("stops").get()
                                     .addOnSuccessListener { stopsSnapshot ->
                                         if (!stopsSnapshot.isEmpty) {
@@ -350,78 +354,79 @@ class EditProfileFragment : Fragment() {
                                                             file.delete()
                                                                 .addOnFailureListener { e ->
                                                                     Log.e(
-                                                                        "Delete Error",
-                                                                        "Failed to delete stop image: ${e.message}"
+                                                                        "Error",
+                                                                        "Error al eliminar imagen de parada: ${e.message}"
                                                                     )
                                                                 }
                                                         }
                                                     }.addOnFailureListener { e ->
                                                         Log.e(
-                                                            "List Error",
-                                                            "Failed to list stop images: ${e.message}"
+                                                            "Error",
+                                                            "Error al listar imágenes de paradas: ${e.message}"
                                                         )
                                                     }
                                             }
                                         }
 
-                                        // Delete trip document after images are removed
+                                        // Eliminar documento del viaje después de borrar las imágenes
                                         db.collection("trips").document(tripId).delete()
                                             .addOnFailureListener { e ->
                                                 Log.e(
-                                                    "Delete Error",
-                                                    "Failed to delete trip document: ${e.message}"
+                                                    "Error",
+                                                    "Error al eliminar documento del viaje: ${e.message}"
                                                 )
                                             }
                                     }.addOnFailureListener { e ->
-                                        Log.e("Query Error", "Failed to query stops: ${e.message}")
+                                        Log.e("Error", "Error al consultar paradas: ${e.message}")
                                     }
                             }
                         }
                     }.addOnFailureListener { e ->
-                        Log.e("Query Error", "Failed to query trips: ${e.message}")
+                        Log.e("Error", "Error al consultar viajes: ${e.message}")
                     }
 
-                // Step 2: Remove user from "members" collection
+                // Paso 2: Eliminar al usuario de la colección "members"
                 db.collection("members").whereEqualTo("userID", userId).get()
                     .addOnSuccessListener { membersSnapshot ->
                         if (!membersSnapshot.isEmpty) {
                             for (memberDoc in membersSnapshot) {
                                 db.collection("members").document(memberDoc.id).delete()
                                     .addOnFailureListener { e ->
-                                        Log.e(
-                                            "Delete Error", "Failed to delete member: ${e.message}"
-                                        )
+                                        Log.e("Error", "Error al eliminar miembro: ${e.message}")
                                     }
                             }
                         }
                     }.addOnFailureListener { e ->
-                        Log.e("Query Error", "Failed to query members: ${e.message}")
+                        Log.e("Error", "Error al consultar miembros: ${e.message}")
                     }
 
-                // Step 3: Delete profile image
+                // Paso 3: Eliminar la imagen de perfil
                 val profileImageRef = storage.reference.child("UserProfile/$userId")
                 profileImageRef.delete().addOnFailureListener { e ->
-                    Log.e("Delete Error", "Failed to delete profile image: ${e.message}")
+                    Log.e("Error", "Error al eliminar imagen de perfil: ${e.message}")
                 }
 
-                // Step 4: Delete user document and authentication account
+                // Paso 4: Eliminar documento del usuario y su cuenta de autenticación
                 db.collection("users").document(userId).delete().addOnSuccessListener {
                     FirebaseAuth.getInstance().currentUser?.delete()
                         ?.addOnCompleteListener { task ->
                             if (task.isSuccessful) {
                                 Toast.makeText(
-                                    context, "Cuenta eliminada correctamente.", Toast.LENGTH_SHORT
+                                    context,
+                                    "Cuenta eliminada correctamente.",
+                                    Toast.LENGTH_SHORT
                                 ).show()
                                 startActivity(Intent(activity, LoginActivity::class.java))
                                 activity?.finish()
                             }
                         }!!.addOnFailureListener { e ->
                             Log.e(
-                                "Delete Error", "Failed to delete Firebase Auth user: ${e.message}"
+                                "Error",
+                                "Error al eliminar usuario en Firebase Auth: ${e.message}"
                             )
                         }
                 }.addOnFailureListener { e ->
-                    Log.e("Delete Error", "Failed to delete user document: ${e.message}")
+                    Log.e("Error", "Error al eliminar documento del usuario: ${e.message}")
                 }
             }
 
@@ -432,6 +437,7 @@ class EditProfileFragment : Fragment() {
             builder.create().show()
         }
 
+        // Eliminar Imágen de Perfil
         iv_delete.setOnClickListener {
             val builder = androidx.appcompat.app.AlertDialog.Builder(
                 requireContext(), R.style.CustomDialogTheme
@@ -441,8 +447,6 @@ class EditProfileFragment : Fragment() {
 
             builder.setPositiveButton("Eliminar") { dialog, _ ->
                 dialog.dismiss()
-                // Proceed to delete the account
-                //Delete Image in Firebase Store
                 val path = "UserProfile/" + auth.uid
                 val referenceStorage = FirebaseStorage.getInstance().getReference(path)
                 referenceStorage.delete().addOnSuccessListener {
@@ -475,10 +479,16 @@ class EditProfileFragment : Fragment() {
 
     }
 
+    /**
+     * Validar formato de correo electrónico.
+     */
     fun isEmailValid(email: String): Boolean {
         return Patterns.EMAIL_ADDRESS.matcher(email).matches()
     }
 
+    /**
+     * Mostrar alertas en pantalla.
+     */
     private fun alert(text: String) {
         val animation = AlphaAnimation(0f, 1f)
         animation.duration = 4000
@@ -491,7 +501,9 @@ class EditProfileFragment : Fragment() {
         tv_alert.setVisibility(View.INVISIBLE)
     }
 
-
+    /**
+     * Actualizar la imagen en Firestore.
+     */
     private fun UpdateFirestore(url: String) {
         FirebaseFirestore.getInstance().collection("users").document(auth.uid!!)
             .update("image", url).addOnFailureListener { e ->
@@ -507,7 +519,11 @@ class EditProfileFragment : Fragment() {
     private val permissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
             if (!isGranted) {
-                Toast.makeText(context, "Permiso denegado. Vuelva a intentarlo.", Toast.LENGTH_SHORT).show()
+                Toast.makeText(
+                    context,
+                    "Permiso denegado. Vuelva a intentarlo.",
+                    Toast.LENGTH_SHORT
+                ).show()
             }
         }
 

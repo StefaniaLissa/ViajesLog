@@ -21,17 +21,22 @@ import com.tfg.viajeslog.model.data.Trip
 import com.tfg.viajeslog.view.adapters.TripAdapter
 import com.tfg.viajeslog.viewmodel.TripViewModel
 
-
+/**
+ * Fragmento para explorar viajes según filtros de duración y ubicación.
+ * Proporciona opciones de búsqueda y filtrado para facilitar la navegación por los viajes disponibles.
+ */
 class ExploreFragment : Fragment() {
+
 
     private lateinit var recyclerView: RecyclerView
     private lateinit var tripAdapter: TripAdapter
     private lateinit var tripViewModel: TripViewModel
+
+    // Botones para filtrar los viajes según su duración
     private lateinit var btnDayTrips: Button
     private lateinit var btnShortTrips: Button
     private lateinit var btnLongTrips: Button
 
-    // Variable para almacenar los resultados filtrados por ubicación
     private lateinit var autocompleteFragment: AutocompleteSupportFragment
     private var locationFilteredTrips: List<Trip>? = null
 
@@ -41,41 +46,52 @@ class ExploreFragment : Fragment() {
     ): View? {
         val view = inflater.inflate(com.tfg.viajeslog.R.layout.fragment_explore, container, false)
 
+        // Inicializar vistas
         recyclerView = view.findViewById(com.tfg.viajeslog.R.id.recyclerView)
         btnDayTrips = view.findViewById(com.tfg.viajeslog.R.id.btn_flt_day)
         btnShortTrips = view.findViewById(com.tfg.viajeslog.R.id.btn_flt_short)
         btnLongTrips = view.findViewById(com.tfg.viajeslog.R.id.btn_flt_long)
 
-        tripAdapter = TripAdapter(isReadOnly = true)
+        // Configurar el adaptador y el RecyclerView
+        tripAdapter = TripAdapter(isReadOnly = true) // Modo de solo lectura
         recyclerView.layoutManager = LinearLayoutManager(requireContext())
         recyclerView.adapter = tripAdapter
 
+        // Inicializar ViewModel para cargar y observar datos
         tripViewModel = ViewModelProvider(this).get(TripViewModel::class.java)
 
-        setupFilters()
-
-        setupAutocompleteSearch()
+        setupFilters() // Configurar botones de filtro
+        setupAutocompleteSearch() // Configurar búsqueda por ubicación
 
         return view
     }
 
+    /**
+     * Configura los botones para filtrar viajes según su duración.
+     */
     private fun setupFilters() {
         btnDayTrips.setOnClickListener {
-            filterTripsByDuration(0, 1)
+            filterTripsByDuration(0, 1) // Filtrar viajes de 1 día o menos
         }
 
         btnShortTrips.setOnClickListener {
-            filterTripsByDuration(2, 7)
+            filterTripsByDuration(2, 7) // Filtrar viajes de 2 a 7 días
         }
 
         btnLongTrips.setOnClickListener {
-            filterTripsByDuration(7, Int.MAX_VALUE)
+            filterTripsByDuration(7, Int.MAX_VALUE) // Filtrar viajes de más de 7 días
         }
     }
 
+    /**
+     * Filtra los viajes por la duración especificada en días.
+     *
+     * @param minDays Duración mínima del viaje en días.
+     * @param maxDays Duración máxima del viaje en días.
+     */
     private fun filterTripsByDuration(minDays: Int, maxDays: Int) {
         if (locationFilteredTrips != null) {
-            // Filtrar los resultados ya filtrados por ubicación
+            // Filtrar resultados ya filtrados por ubicación
             val filteredTrips = locationFilteredTrips!!.filter { trip ->
                 val duration = trip.duration ?: 0
                 duration in minDays..maxDays
@@ -87,6 +103,7 @@ class ExploreFragment : Fragment() {
                     .show()
             }
         } else {
+            // Filtrar directamente desde el ViewModel
             tripViewModel.getTripsByDuration(minDays, maxDays)
                 .observe(viewLifecycleOwner) { trips ->
                     if (trips.isNotEmpty()) {
@@ -96,17 +113,18 @@ class ExploreFragment : Fragment() {
                             requireContext(),
                             "No se encontraron viajes",
                             Toast.LENGTH_SHORT
-                        )
-                            .show()
+                        ).show()
                     }
                 }
         }
     }
 
-
+    /**
+     * Configura la búsqueda autocompletada basada en ubicación.
+     */
     private fun setupAutocompleteSearch() {
 
-        // Recuperar API KEY
+        // Recuperar la API Key para Google Places
         val ai: ApplicationInfo? = requireContext().packageManager
             ?.getApplicationInfo(
                 requireContext().packageName,
@@ -114,17 +132,17 @@ class ExploreFragment : Fragment() {
             )
         val apiKey = ai?.metaData?.getString("com.google.android.geo.API_KEY").toString()
 
-        // Initialize Places SDK if not already initialized
+        // Inicializar Places SDK si no está inicializado
         if (!Places.isInitialized()) {
             Places.initialize(requireContext(), apiKey)
         }
 
-        // Get the AutocompleteSupportFragment
+        // Obtener el fragmento de autocompletar
         autocompleteFragment =
             childFragmentManager.findFragmentById(com.tfg.viajeslog.R.id.fg_autocomplete)
                     as AutocompleteSupportFragment
 
-        // Specify the types of place data to return
+        // Configurar los campos de lugar que se desean obtener
         autocompleteFragment.setPlaceFields(
             listOf(
                 Place.Field.ID,
@@ -133,15 +151,16 @@ class ExploreFragment : Fragment() {
             )
         )
 
-        autocompleteFragment!!.view?.findViewById<ImageButton>(com.google.android.libraries.places.R.id.places_autocomplete_clear_button)
+        // Botón para limpiar búsqueda
+        autocompleteFragment.view?.findViewById<ImageButton>(com.google.android.libraries.places.R.id.places_autocomplete_clear_button)
             ?.setOnClickListener { view ->
-                autocompleteFragment.setText("");
-                view.setVisibility(View.GONE);
+                autocompleteFragment.setText("")
+                view.visibility = View.GONE
                 locationFilteredTrips = null
                 tripAdapter.updateTripList(emptyList())
             }
 
-        // Set up a PlaceSelectionListener to handle the response
+        // Listener para manejar selección de lugar
         autocompleteFragment.setOnPlaceSelectedListener(object : PlaceSelectionListener {
             override fun onPlaceSelected(place: Place) {
                 place.latLng?.let { latLng ->
@@ -150,19 +169,24 @@ class ExploreFragment : Fragment() {
             }
 
             override fun onError(status: com.google.android.gms.common.api.Status) {
-                if (status != com.google.android.gms.common.api.Status.RESULT_CANCELED) { //Cancelado por el Usuario
+                if (status != com.google.android.gms.common.api.Status.RESULT_CANCELED) {
                     Toast.makeText(requireContext(), "Error al buscar: $status", Toast.LENGTH_SHORT)
                         .show()
                 }
             }
         })
-
     }
 
+    /**
+     * Filtra los viajes en un radio de 50 km desde una ubicación específica.
+     *
+     * @param lat Latitud del punto de búsqueda.
+     * @param lng Longitud del punto de búsqueda.
+     */
     private fun filterTripsByLocation(lat: Double, lng: Double) {
         tripViewModel.getTripsByLocation(lat, lng, 50.0).observe(viewLifecycleOwner) { trips ->
             if (trips.isNotEmpty()) {
-                locationFilteredTrips = trips // Guardar los resultados filtrados por ubicación
+                locationFilteredTrips = trips // Guardar resultados filtrados por ubicación
                 tripAdapter.updateTripList(trips)
             } else {
                 Toast.makeText(
@@ -170,8 +194,8 @@ class ExploreFragment : Fragment() {
                     "No se encontraron viajes cerca",
                     Toast.LENGTH_SHORT
                 ).show()
-                locationFilteredTrips = null // Limpiar los resultados si no hay coincidencias
-                tripAdapter.updateTripList(emptyList()) // Limpia el RecyclerView
+                locationFilteredTrips = null // Limpiar resultados
+                tripAdapter.updateTripList(emptyList()) // Limpiar RecyclerView
             }
         }
     }

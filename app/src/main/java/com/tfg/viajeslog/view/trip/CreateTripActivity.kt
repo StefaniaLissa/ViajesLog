@@ -19,41 +19,50 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.storage.FirebaseStorage
 import com.tfg.viajeslog.view.tripExtra.MediumActivity
 
+/**
+ * Actividad para crear un viaje nuevo.
+ * Permite seleccionar una imagen de portada, definir detalles del viaje (nombre, visibilidad),
+ * y guardar los datos en Firebase Firestore.
+ */
 class CreateTripActivity : AppCompatActivity() {
 
-    private lateinit var iv_cover: ImageView
-    private lateinit var btn_new_image: Button
-    private lateinit var iv_delete: ImageView
-    private lateinit var et_name: EditText
-    private lateinit var cb_online: CheckBox
-    private lateinit var cb_share: CheckBox
-    private lateinit var btn_create: Button
-    private lateinit var db: FirebaseFirestore
-    private var uri: Uri? = null
-    private lateinit var user: FirebaseUser
-    private lateinit var tripId: String
+    // Variables de vistas
+    private lateinit var iv_cover:         ImageView       // Imagen de portada del viaje
+    private lateinit var btn_new_image:    Button          // Botón para cambiar la imagen de portada
+    private lateinit var iv_delete:        ImageView       // Botón para eliminar la imagen de portada
+    private lateinit var et_name:          EditText        // Campo de texto para el nombre del viaje
+    private lateinit var cb_online:        CheckBox        // CheckBox para definir si el viaje es público
+    private lateinit var cb_share:         CheckBox        // CheckBox para definir si se compartirá el viaje
+    private lateinit var btn_create:       Button          // Botón para crear el viaje
+    private lateinit var db:               FirebaseFirestore // Instancia de Firebase Firestore
+    private var uri:                       Uri? = null     // URI de la imagen seleccionada
+    private lateinit var user:             FirebaseUser    // Usuario actual
+    private lateinit var tripId:           String          // ID generado para el viaje
 
-    private lateinit var imagePickerHelper: ImagePickerHelper // com.tfg.viajeslog.helper.ImagePickerHelper
+    // Helper
+    private lateinit var imagePickerHelper: ImagePickerHelper
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_create_trip)
-        init()
+        init() // Inicializar vistas y variables
 
-        // Inicializar com.tfg.viajeslog.helper.ImagePickerHelper
-        imagePickerHelper = ImagePickerHelper(context = this,
-            singleImageMode = true, // Solo se permite una imagen para la portada
+        // Inicializar ImagePickerHelper
+        imagePickerHelper = ImagePickerHelper(
+            context = this,
+            singleImageMode = true, // Solo se permite seleccionar una imagen para la portada
             onImagePicked = { uris ->
-                // Manejar imagen seleccionada
+                // Manejo de imagen seleccionada
                 if (uris.isNotEmpty() && uris[0].toString() != "") {
                     uri = uris[0]
                     iv_cover.setImageURI(uri)
                 }
                 iv_delete.isEnabled = true
-                iv_delete.alpha = 1.0f
-            })
+                iv_delete.alpha = 1.0f // Habilitar botón de eliminar imagen
+            }
+        )
 
-        // Cambiar imagen (Abrir diálogo)
+        // Cambiar la imagen
         btn_new_image.setOnClickListener {
             imagePickerHelper.showImagePickerDialog(
                 galleryLauncher = galleryLauncher,
@@ -62,6 +71,7 @@ class CreateTripActivity : AppCompatActivity() {
             )
         }
 
+        // Permitir cambiar la imagen tocando directamente en la portada
         iv_cover.setOnClickListener {
             imagePickerHelper.showImagePickerDialog(
                 galleryLauncher = galleryLauncher,
@@ -70,53 +80,59 @@ class CreateTripActivity : AppCompatActivity() {
             )
         }
 
-        // Handle trip creation
+        // Crear el viaje
         btn_create.setOnClickListener {
             createTrip()
         }
 
+        // Eliminar la imagen
         iv_delete.setOnClickListener {
             uri = null
             iv_cover.setImageURI(null)
             iv_delete.isEnabled = false
-            iv_delete.alpha = 0.5f
+            iv_delete.alpha = 0.5f // Deshabilitar botón de eliminar
         }
-
     }
 
+    /**
+     * Método para crear un viaje y guardar los datos en Firestore.
+     */
     private fun createTrip() {
         val trip = hashMapOf(
-            "name" to et_name.text.toString(), "public" to cb_online.isChecked
+            "name" to et_name.text.toString(),
+            "public" to cb_online.isChecked
         )
 
-        // Agregar a la colección con nuevo ID
+        // Guardar en la colección "trips" de Firestore
         db.collection("trips").add(trip).addOnSuccessListener { documentReference ->
             Toast.makeText(
                 applicationContext, "Se ha registrado con éxito", Toast.LENGTH_SHORT
             ).show()
 
-            tripId = documentReference.id
+            tripId = documentReference.id // Guardar el ID generado para el viaje
 
-            // Agregar usuario actual como admin
+            // Agregar al usuario actual como administrador del viaje
             val member = hashMapOf(
                 "admin" to true, "tripID" to documentReference.id, "userID" to user.uid
             )
             db.collection("members").add(member)
 
-            // Guardar Cover
+            // Subir la imagen de portada, si existe
             if (uri != null) {
                 uploadCoverImage(uri.toString())
             }
 
+            // Caso de compartir el viaje
             if (cb_share.isChecked) {
                 openShareTripFragment()
             } else {
-                // Directly go to DetailedTripActivity if no sharing is required
+                // Ir directamente a la actividad de detalle del viaje
                 val intent = Intent(this@CreateTripActivity, DetailedTripActivity::class.java)
                 intent.putExtra("id", tripId)
                 startActivity(intent)
             }
 
+            // Asegurar que los cambios en Firestore están guardados antes de finalizar
             db.waitForPendingWrites().addOnCompleteListener {
                 finish()
             }
@@ -126,6 +142,9 @@ class CreateTripActivity : AppCompatActivity() {
         }
     }
 
+    /**
+     * Método para abrir la actividad de compartir viaje.
+     */
     private fun openShareTripFragment() {
         val intent = Intent(this, MediumActivity::class.java)
         intent.putExtra("view", "share")
@@ -133,14 +152,16 @@ class CreateTripActivity : AppCompatActivity() {
         startActivity(intent)
     }
 
+    /**
+     * Método para subir la imagen de portada a Firebase Storage.
+     */
     private fun uploadCoverImage(imageUri: String) {
         val rutaImagen = "TripCover/" + tripId + "/" + System.currentTimeMillis()
         val referenceStorage = FirebaseStorage.getInstance().getReference(rutaImagen)
 
-        // Subir archivo a Firebase Storage
+        // Subir la imagen
         referenceStorage.putFile(imageUri.toUri())
             .addOnSuccessListener { task ->
-                // Obtener la URL de descarga
                 task.storage.downloadUrl
                     .addOnSuccessListener { uri ->
                         val imageUrl = uri.toString()
@@ -177,6 +198,9 @@ class CreateTripActivity : AppCompatActivity() {
             }
     }
 
+    /**
+     * Inicializar vistas y configurar valores iniciales.
+     */
     private fun init() {
         iv_cover = findViewById(R.id.iv_cover)
         btn_new_image = findViewById(R.id.btn_new_image)
@@ -188,7 +212,7 @@ class CreateTripActivity : AppCompatActivity() {
         db = FirebaseFirestore.getInstance()
         user = FirebaseAuth.getInstance().currentUser!!
 
-        // Fetch user profile to initialize `cb_online`
+        // Configurar estado inicial del CheckBox "cb_online"
         db.collection("users").document(user.uid).get().addOnSuccessListener { document ->
             if (document.exists()) {
                 val isPublic = document.getBoolean("public") ?: false
@@ -196,11 +220,12 @@ class CreateTripActivity : AppCompatActivity() {
             }
         }
 
+        // Deshabilitar botón de eliminar imagen inicialmente
         iv_delete.isEnabled = false
         iv_delete.alpha = 0.5f
-
     }
 
+    // Configuración de permisos y lanzadores para galería/cámara
     private val permissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
             if (!isGranted) {
@@ -221,6 +246,4 @@ class CreateTripActivity : AppCompatActivity() {
                 imagePickerHelper.handleCameraResult()
             }
         }
-
-
 }

@@ -26,46 +26,52 @@ import com.tfg.viajeslog.view.adapters.StopAdapter
 import com.tfg.viajeslog.viewmodel.StopViewModel
 import java.util.Calendar
 
+/**
+ * Actividad para crear un viaje a partir de imágenes seleccionadas.
+ * Permite cargar imágenes, extraer información de ubicación y detalles de los puntos de interés (stops),
+ * y almacenarlos en Firebase Firestore.
+ */
 class CreateFromImgActivity : AppCompatActivity() {
 
-    private lateinit var rv_images: RecyclerView
-    private lateinit var img_adapter: ImageAdapter
-    private lateinit var imagesList: ArrayList<String>
-    private lateinit var rv_stops: RecyclerView
-    private lateinit var stopViewModel: StopViewModel
-    private lateinit var stopAdapter: StopAdapter
-    private lateinit var btn_save: Button
-    private lateinit var btn_upload: Button
-    private lateinit var btn_process: Button
-    private lateinit var sv_images: ScrollView
-    private lateinit var tv_instructions: TextView
-    private lateinit var tv_instructions2: TextView
-    private lateinit var tripID: String
-    private lateinit var db: FirebaseFirestore
+    // Variables de vistas
+    private lateinit var rv_images:       RecyclerView     // RecyclerView para mostrar imágenes seleccionadas
+    private lateinit var img_adapter:     ImageAdapter     // Adaptador para las imágenes
+    private lateinit var imagesList:      ArrayList<String> // Lista de rutas de imágenes seleccionadas
+    private lateinit var rv_stops:        RecyclerView     // RecyclerView para mostrar los stops detectados
+    private lateinit var stopViewModel:   StopViewModel    // ViewModel para manejar la lógica de los stops
+    private lateinit var stopAdapter:     StopAdapter      // Adaptador para los stops
+    private lateinit var btn_save:        Button           // Botón para guardar los stops
+    private lateinit var btn_upload:      Button           // Botón para subir imágenes
+    private lateinit var btn_process:     Button           // Botón para procesar las imágenes seleccionadas
+    private lateinit var sv_images:       ScrollView       // ScrollView para contener las imágenes seleccionadas
+    private lateinit var tv_instructions: TextView         // Texto de instrucciones iniciales
+    private lateinit var tv_instructions2: TextView        // Texto de instrucciones secundarias
+    private lateinit var tripID:          String           // ID del viaje
+    private lateinit var db:              FirebaseFirestore // Instancia de Firebase Firestore
 
     // Helper
-    private lateinit var imagePickerHelper: ImagePickerHelper
+    private lateinit var imagePickerHelper: ImagePickerHelper // Ayudante para manejar la selección de imágenes
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
         setContentView(R.layout.activity_create_from_img)
-        init()
+        init() // Inicializar vistas y variables
 
-        // Inicializar com.tfg.viajeslog.helper.ImagePickerHelper
+        // Inicializar ImagePickerHelper para manejar imágenes
         imagePickerHelper = ImagePickerHelper(
             context = this,
-            singleImageMode = false, // Permitir selección múltiple
+            singleImageMode = false, // Permitir múltiples imágenes
             onImagePicked = { uris ->
-                // Manejar imágenes seleccionadas
+                // Agregar imágenes seleccionadas a la lista
                 if (uris.isNotEmpty()) {
                     imagesList.addAll(uris.map { it.toString() })
                     img_adapter.notifyDataSetChanged()
-                    btn_process.visibility = View.VISIBLE
+                    btn_process.visibility = View.VISIBLE // Mostrar botón de procesar
                 }
             }
         )
 
+        // Configuración del botón para subir imágenes
         btn_upload.setOnClickListener {
             imagePickerHelper.showImagePickerDialog(
                 galleryLauncher = galleryLauncher,
@@ -74,17 +80,19 @@ class CreateFromImgActivity : AppCompatActivity() {
             )
         }
 
+        // Procesar imágenes
         btn_process.setOnClickListener {
-
-            // Add stops from selected images
+            // Obtener la API Key de Google Places
             val apiKey = applicationContext.packageManager.getApplicationInfo(
                 applicationContext.packageName, PackageManager.GET_META_DATA
             ).metaData.getString("com.google.android.geo.API_KEY").toString()
 
+            // Inicializar Google Places si no está inicializado
             if (!Places.isInitialized()) {
                 Places.initialize(applicationContext, apiKey)
             }
 
+            // Procesar cada imagen seleccionada
             for (uri in imagesList) {
                 stopViewModel.addStopFromUri(
                     uri.toUri(), contentResolver, apiKey, Places.createClient(this)
@@ -93,10 +101,10 @@ class CreateFromImgActivity : AppCompatActivity() {
 
             stopViewModel.stops.observe(this) { stops ->
                 if (!stops.isNullOrEmpty()) {
-                    // Se encontraron stops
+                    // Actualizar el adaptador de stops
                     stopAdapter.updateStopList(stops)
+                    // Actualizar la UI
                     tv_instructions.visibility = View.GONE
-                    btn_process.visibility = View.GONE
                     sv_images.visibility = View.GONE
                     btn_upload.visibility = View.GONE
                     btn_process.visibility = View.GONE
@@ -105,16 +113,15 @@ class CreateFromImgActivity : AppCompatActivity() {
                 }
             }
 
+            // Manejo de errores al procesar imágenes
             stopViewModel.error.observe(this) { errorMessage ->
                 errorMessage?.let {
-                    //Toast.makeText(this, it, Toast.LENGTH_LONG).show()
-                    // No se encontraron stops
                     Toast.makeText(
                         this,
                         "No se encontraron datos en las imágenes.",
                         Toast.LENGTH_LONG
                     ).show()
-                    // Restablecer UI para permitir subir más imágenes
+                    // Restablecer la UI para permitir subir más imágenes
                     imagesList.clear()
                     img_adapter.notifyDataSetChanged()
                     sv_images.visibility = View.VISIBLE
@@ -124,6 +131,7 @@ class CreateFromImgActivity : AppCompatActivity() {
             }
         }
 
+        // Guardar
         btn_save.setOnClickListener {
             for (stop in stopViewModel.stops.value!!) {
                 val hm_stop = hashMapOf(
@@ -135,58 +143,36 @@ class CreateFromImgActivity : AppCompatActivity() {
                     "addressPlace" to stop.addressPlace,
                     "geoPoint" to stop.geoPoint
                 )
-                // Agregar a la colección con nuevo ID
+
+                // Guardar stop en Firebase Firestore
                 db.collection("trips").document(tripID).collection("stops").add(hm_stop)
                     .addOnSuccessListener { documentReference ->
                         Toast.makeText(
                             applicationContext, "Se ha registrado con éxito", Toast.LENGTH_SHORT
                         ).show()
-                        //Subir a Storage
-                        val rutaImagen =
-                            "Stop_Image/" + tripID + "/" + documentReference.id + "/" + System.currentTimeMillis()
-                        val referenceStorage =
-                            FirebaseStorage.getInstance().getReference(rutaImagen)
+
+                        // Subir imagen al almacenamiento
+                        val imagePath = "Stop_Image/$tripID/${documentReference.id}/${System.currentTimeMillis()}"
+                        val referenceStorage = FirebaseStorage.getInstance().getReference(imagePath)
                         referenceStorage.putFile(stop.photos!![0].toUri())
                             .addOnSuccessListener { task ->
                                 task.storage.downloadUrl.addOnSuccessListener { uri ->
-                                    val url = uri.toString()
-                                    UpdateFirestore(
-                                        url,
-                                        documentReference.id
-                                    ) // Usa la URL obtenida
-                                }.addOnFailureListener { e ->
-                                    Toast.makeText(
-                                        applicationContext,
-                                        "Error al obtener la URL de descarga: ${e.message}",
-                                        Toast.LENGTH_SHORT
-                                    ).show()
+                                    UpdateFirestore(uri.toString(), documentReference.id)
                                 }
-                            }
-                            .addOnFailureListener { e ->
-                                Toast.makeText(
-                                    applicationContext,
-                                    "No se ha podido subir la imagen: ${e.message}",
-                                    Toast.LENGTH_SHORT
-                                ).show()
+                            }.addOnFailureListener { e ->
+                                Toast.makeText(applicationContext, "No se ha podido subir la imagen: ${e.message}", Toast.LENGTH_SHORT).show()
                             }
 
                         //Fecha de Inicio del Viaje Portada
                         val calendar = Calendar.getInstance()
-                        calendar.set(
-                            9999,
-                            Calendar.DECEMBER,
-                            31,
-                            23,
-                            59,
-                            59
-                        ) // Año 9999, último día
+                        calendar.set(9999, Calendar.DECEMBER, 31, 23, 59, 59) // Año 9999, último día
                         calendar.set(Calendar.MILLISECOND, 999) // Último milisegundo
                         val endDate = Timestamp(calendar.time)
+
                         db.collection("trips").document(tripID).get().addOnCompleteListener {
                             val initDate =
-                                if (it.result.get("initDate") == null) endDate else it.result.toObject(
-                                    Trip::class.java
-                                )!!.initDate
+                                if (it.result.get("initDate") == null) endDate else it.result.toObject(Trip::class.java)!!.initDate
+
                             if (initDate!! > stop.timestamp!!) {
                                 db.collection("trips").document(tripID)
                                     .update("initDate", stop.timestamp).addOnFailureListener { ex ->
@@ -202,33 +188,35 @@ class CreateFromImgActivity : AppCompatActivity() {
                         Toast.makeText(applicationContext, "${e.message}", Toast.LENGTH_SHORT)
                             .show()
                     }
-
             }
         }
     }
 
+    /**
+     * Inicializa vistas y adaptadores, y configura el RecyclerView para imágenes y stops.
+     */
     private fun init() {
+        // Inicializar vistas
         tv_instructions = findViewById(R.id.tv_instructions)
         tv_instructions2 = findViewById(R.id.tv_instructions2)
         btn_upload = findViewById(R.id.btn_upload)
         btn_save = findViewById(R.id.btn_save)
         btn_process = findViewById(R.id.btn_process)
-
         sv_images = findViewById(R.id.sv_images)
         rv_images = findViewById(R.id.rv_images)
         imagesList = ArrayList()
         img_adapter = ImageAdapter(imagesList) { imageUrl ->
-            imagesList.remove(imageUrl) // Eliminar de la lista general
+            imagesList.remove(imageUrl)
             img_adapter.notifyDataSetChanged()
         }
 
-        val layoutManager =
-            LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
+        // Configuración del RecyclerView para imágenes
+        val layoutManager = LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
         rv_images.layoutManager = layoutManager
         rv_images.adapter = img_adapter
 
+        // Configuración del RecyclerView para stops
         rv_stops = findViewById(R.id.rv_stops)
-        rv_stops.isClickable = false
         rv_stops.layoutManager = LinearLayoutManager(this)
         rv_stops.setHasFixedSize(true)
         stopAdapter = StopAdapter(isClickable = false)
@@ -236,11 +224,14 @@ class CreateFromImgActivity : AppCompatActivity() {
 
         stopViewModel = ViewModelProvider(this).get(StopViewModel::class.java)
 
-        //Get Trip Intent
+        // Obtener el ID del viaje desde el intent
         tripID = intent.getStringExtra("tripID").toString()
         db = FirebaseFirestore.getInstance()
     }
 
+    /**
+     * Actualiza Firestore con la URL de una imagen subida.
+     */
     private fun UpdateFirestore(url: String, stopID: String) {
         val photo = hashMapOf(
             "url" to url
@@ -266,10 +257,10 @@ class CreateFromImgActivity : AppCompatActivity() {
             }
     }
 
+    // Manejo de permisos, galería y cámara
     private val permissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
-            if (isGranted) {
-            } else {
+            if (!isGranted) {
                 Toast.makeText(this, "Permiso denegado. Vuelva a intentarlo.", Toast.LENGTH_SHORT).show()
             }
         }
@@ -287,5 +278,4 @@ class CreateFromImgActivity : AppCompatActivity() {
                 imagePickerHelper.handleCameraResult()
             }
         }
-
 }

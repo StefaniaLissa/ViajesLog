@@ -5,10 +5,10 @@ package com.tfg.viajeslog.view.login
  * mientras verifica el estado de autenticación del usuario.
  *
  * Características principales:
- * - Animaciones de entrada (fade-in y escalado) para una experiencia visual atractiva.
+ * - Animaciones de entrada (fade-in y escalado).
  * - Redirección automática:
- *      - Usuarios autenticados -> MainActivity.
- *      - Usuarios no autenticados -> LoginActivity.
+ *      - Usuarios autenticados     -> MainActivity.
+ *      - Usuarios no autenticados  -> LoginActivity.
  * - Usa FirebaseAuth para verificar el estado de autenticación.
  *
  * Tiempo visible: 2 segundos.
@@ -65,9 +65,9 @@ class SplashActivity : AppCompatActivity() {
         val auth = FirebaseAuth.getInstance()
         try {
             val nextActivity = if (auth.currentUser != null) {
-                MainActivity::class.java // Usuario autenticado
+                MainActivity::class.java    // Usuario autenticado
             } else {
-                LoginActivity::class.java // Usuario no autenticado
+                LoginActivity::class.java   // Usuario no autenticado
             }
             startActivity(Intent(this@SplashActivity, nextActivity))
             overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
@@ -78,7 +78,7 @@ class SplashActivity : AppCompatActivity() {
     }
 
     companion object {
-        private const val SPLASH_DELAY = 2000L // Tiempo de espera en milisegundos
-        private const val ANIMATION_DURATION = 1000L // Duración de la animación
+        private const val SPLASH_DELAY = 2000L          // Tiempo de espera en milisegundos
+        private const val ANIMATION_DURATION = 1000L    // Duración de la animación
     }
 }

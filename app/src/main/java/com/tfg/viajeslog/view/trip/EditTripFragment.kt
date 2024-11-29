@@ -1,5 +1,6 @@
 package com.tfg.viajeslog.view.trip
 
+// Importaciones necesarias
 import com.tfg.viajeslog.helper.ImagePickerHelper
 import android.net.Uri
 import android.os.Bundle
@@ -26,29 +27,39 @@ import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.storage.FirebaseStorage
 
+/**
+ * Fragmento para editar un viaje existente.
+ * Permite actualizar el nombre del viaje, imagen de portada y configuración de visibilidad.
+ */
 class EditTripFragment : Fragment() {
 
-    private lateinit var iv_cover: ImageView
-    private lateinit var btn_new_image: Button
-    private lateinit var iv_delete: ImageView
-    private lateinit var et_name: EditText
-    private lateinit var cb_online: CheckBox
-    private lateinit var ll_cb_share: LinearLayout
-    private lateinit var sv_user: SearchView
-    private lateinit var ll_users: LinearLayout
-    private lateinit var cb_share: CheckBox
-    private lateinit var btn_create: Button
-    private lateinit var db: FirebaseFirestore
-    private var uri: Uri? = null
-    private var uriString: String? = null
-    private lateinit var user: FirebaseUser
-    private lateinit var viewModel: TripViewModel
-    private lateinit var tripID: String
-    private var originalImageUrl: String? = null // Guardar URL original de la imagen
+    // Vistas del layout
+    private lateinit var iv_cover: ImageView         // Imagen de portada del viaje
+    private lateinit var btn_new_image: Button      // Botón para agregar una nueva imagen
+    private lateinit var iv_delete: ImageView       // Botón para eliminar la imagen de portada
+    private lateinit var et_name: EditText          // Campo para editar el nombre del viaje
+    private lateinit var cb_online: CheckBox        // Checkbox para marcar el viaje como público
+    private lateinit var ll_cb_share: LinearLayout  // Layout del checkbox para compartir
+    private lateinit var sv_user: SearchView        // Campo de búsqueda para usuarios
+    private lateinit var ll_users: LinearLayout     // Layout para mostrar usuarios
+    private lateinit var cb_share: CheckBox         // Checkbox para permitir compartir
+    private lateinit var btn_create: Button         // Botón para guardar los cambios
 
+    // Variables de Firebase
+    private lateinit var db: FirebaseFirestore      // Referencia a Firestore
+    private var uri: Uri? = null                    // URI de la nueva imagen seleccionada
+    private var uriString: String? = null           // Cadena de la URI seleccionada
+    private lateinit var user: FirebaseUser         // Usuario actual
+    private lateinit var viewModel: TripViewModel   // ViewModel para manejar datos del viaje
+    private lateinit var tripID: String             // ID del viaje
+    private var originalImageUrl: String? = null    // URL original de la imagen de portada
 
-    private lateinit var imagePickerHelper: ImagePickerHelper // com.tfg.viajeslog.helper.ImagePickerHelper
+    // Ayudante para selección de imágenes
+    private lateinit var imagePickerHelper: ImagePickerHelper
 
+    /**
+     * Infla la vista y enlaza las vistas del layout con sus variables.
+     */
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
     ): View? {
@@ -58,47 +69,44 @@ class EditTripFragment : Fragment() {
         iv_delete = view.findViewById(R.id.iv_delete)
         et_name = view.findViewById(R.id.et_name)
         cb_online = view.findViewById(R.id.cb_online)
-        ll_cb_share = view.findViewById(R.id.ll_cb_share)
-        sv_user = view.findViewById(R.id.sv_user)
-        ll_users = view.findViewById(R.id.ll_users)
-        cb_share = view.findViewById(R.id.cb_share)
         btn_create = view.findViewById(R.id.btn_create)
         db = FirebaseFirestore.getInstance()
         user = FirebaseAuth.getInstance().currentUser!!
         uriString = String()
 
-        //Get Trip Intent
+        // Obtener ID del viaje desde los argumentos
         tripID = arguments?.getString("trip")!!
 
-        //Get Trip
+        // Configurar el ViewModel
         viewModel = ViewModelProvider(this).get(TripViewModel::class.java)
         viewModel.loadTrip(tripID)
 
         return view
     }
 
+    /**
+     * Configura los elementos del fragmento al ser creado.
+     */
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        // Configurar com.tfg.viajeslog.helper.ImagePickerHelper
-        imagePickerHelper = ImagePickerHelper(context = requireContext(),
-            singleImageMode = true,
+        // Inicializa el ayudante para la selección de imágenes
+        imagePickerHelper = ImagePickerHelper(
+            context = requireContext(),
+            singleImageMode = true, // Solo una imagen
             onImagePicked = { uris ->
                 if (uris.isNotEmpty()) {
-                    uri = uris[0]
-                    updateCoverImage(uri)
+                    uri = uris[0] // Establecer URI de la nueva imagen
+                    updateCoverImage(uri) // Actualizar la imagen de portada
                     iv_delete.isEnabled = true
                     iv_delete.alpha = 1.0f
                 }
             })
 
-        // Observador del ViewModel para cargar los datos del viaje
-        viewModel = ViewModelProvider(this).get(TripViewModel::class.java)
-        viewModel.loadTrip(tripID)
-
+        // Configura el observador del ViewModel para cargar datos del viaje
         viewModel.trip.observe(viewLifecycleOwner) {
             if (it != null) {
-                et_name.setText(it.name)
+                et_name.setText(it.name) // Cargar el nombre del viaje
                 if (it.image != null) {
                     originalImageUrl = it.image // Guardar URL original
                     iv_cover.contentDescription = it.image
@@ -110,11 +118,12 @@ class EditTripFragment : Fragment() {
                     iv_delete.isEnabled = false
                     iv_delete.alpha = 0.5f
                 }
-                viewModel.trip.removeObservers(viewLifecycleOwner)
+                cb_online.isChecked = it.public!!
+                viewModel.trip.removeObservers(viewLifecycleOwner) // Elimina observadores para evitar duplicados
             }
         }
 
-        // Imagen como botón para cambiarla
+        // Configurar clic en imagen para cambiarla
         iv_cover.setOnClickListener {
             imagePickerHelper.showImagePickerDialog(
                 galleryLauncher = galleryLauncher,
@@ -122,6 +131,8 @@ class EditTripFragment : Fragment() {
                 permissionLauncher = permissionLauncher
             )
         }
+
+        // Configurar clic en botón de nueva imagen
         btn_new_image.setOnClickListener {
             imagePickerHelper.showImagePickerDialog(
                 galleryLauncher = galleryLauncher,
@@ -130,33 +141,33 @@ class EditTripFragment : Fragment() {
             )
         }
 
-        // Botón para eliminar la imagen
+        // Configurar clic en botón para eliminar imagen
         iv_delete.setOnClickListener {
             clearCoverImage()
-
         }
 
-        // Botón para guardar los cambios
+        // Configurar clic en botón para guardar cambios
         btn_create.setOnClickListener {
             updateTrip()
         }
-
     }
 
+    /**
+     * Actualiza los datos del viaje en Firestore.
+     * Incluye nombre, visibilidad y manejo de la imagen de portada.
+     */
     private fun updateTrip() {
         val trip = hashMapOf(
-            "name" to et_name.text.toString(), "public" to cb_online.isChecked
+            "name" to et_name.text.toString(),
+            "public" to cb_online.isChecked
         )
 
-        // Actualizar los datos en Firestore
+        // Actualizar datos del viaje
         val docRef = db.collection("trips").document(tripID)
         docRef.update(trip as Map<String, Any>).addOnSuccessListener {
-            // Subir la imagen si es necesario
-            uri?.let { imageUri ->
-                uploadCoverImage(imageUri.toString())
-            }
+            uri?.let { imageUri -> uploadCoverImage(imageUri.toString()) } // Subir nueva imagen
 
-            // Eliminar la imagen anterior si fue eliminada
+            // Eliminar imagen anterior si fue borrada
             if (originalImageUrl != null && uri == null) {
                 deleteImageFromStorage(originalImageUrl!!)
             }
@@ -168,10 +179,13 @@ class EditTripFragment : Fragment() {
         }
     }
 
+    /**
+     * Elimina la imagen de portada del almacenamiento de Firebase.
+     */
     private fun deleteImageFromStorage(imageUrl: String) {
         val referenceStorage = FirebaseStorage.getInstance().getReferenceFromUrl(imageUrl)
         referenceStorage.delete().addOnSuccessListener {
-            db.collection("trips").document(tripID).update("image", null) // Actualizar Firestore
+            db.collection("trips").document(tripID).update("image", null) // Actualiza Firestore
             Toast.makeText(context, "Imagen eliminada correctamente", Toast.LENGTH_SHORT).show()
         }.addOnFailureListener { e ->
             Toast.makeText(context, "Error al eliminar la imagen: ${e.message}", Toast.LENGTH_SHORT)
@@ -179,6 +193,9 @@ class EditTripFragment : Fragment() {
         }
     }
 
+    /**
+     * Sube una nueva imagen de portada al almacenamiento de Firebase.
+     */
     private fun uploadCoverImage(imageUri: String) {
         val rutaImagen = "TripCover/$tripID/${System.currentTimeMillis()}"
         val referenceStorage = FirebaseStorage.getInstance().getReference(rutaImagen)
@@ -192,6 +209,10 @@ class EditTripFragment : Fragment() {
         }
     }
 
+    /**
+     * Muestra un diálogo de confirmación para eliminar la imagen de portada.
+     * Si el usuario confirma, se elimina la imagen actual.
+     */
     private fun clearCoverImage() {
         val builder = androidx.appcompat.app.AlertDialog.Builder(
             requireContext(), R.style.CustomDialogTheme
@@ -201,39 +222,59 @@ class EditTripFragment : Fragment() {
 
         builder.setPositiveButton("Eliminar") { dialog, _ ->
             dialog.dismiss()
-            // Actualizar estado de la imagen
+
+            // Restablece el estado de la imagen a su valor por defecto
             uri = null
             iv_cover.setImageResource(R.drawable.ic_cover_background) // Imagen por defecto
             iv_cover.contentDescription = null
 
-            // Si había una imagen original en Firestore, actualizar el modelo
+            // Si hay una imagen guardada en Firestore, la elimina
             if (!originalImageUrl.isNullOrEmpty()) {
-                deleteImageFromStorage(originalImageUrl!!)
-                originalImageUrl = null
+                deleteImageFromStorage(originalImageUrl!!) // Elimina la imagen de Firebase Storage
+                originalImageUrl = null // Restablece el estado del URL original
             }
 
+            // Desactiva el botón de eliminación de imagen
             iv_delete.isEnabled = false
             iv_delete.alpha = 0.5f
         }
 
         builder.setNegativeButton("Cancelar") { dialog, _ ->
-            dialog.dismiss()
+            dialog.dismiss() // Cierra el diálogo sin realizar ninguna acción
         }
 
-        builder.create().show()
+        builder.create().show() // Muestra el diálogo al usuario
     }
 
+    /**
+     * Actualiza la imagen de portada con el URI proporcionado.
+     * Cambia la imagen en la vista `ImageView`.
+     *
+     * @param uri URI de la nueva imagen que se mostrará como portada.
+     */
     private fun updateCoverImage(uri: Uri?) {
-        iv_cover.setImageURI(uri)
+        iv_cover.setImageURI(uri) // Establece la imagen proporcionada en el ImageView
     }
 
+    /**
+     * Solicita permisos para acceder a la cámara o galería.
+     * Si el permiso es denegado, muestra un mensaje de error.
+     */
     private val permissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
             if (!isGranted) {
-                Toast.makeText(context, "Permiso denegado. Vuelva a intentarlo.", Toast.LENGTH_SHORT).show()
+                Toast.makeText(
+                    context,
+                    "Permiso denegado. Vuelva a intentarlo.",
+                    Toast.LENGTH_SHORT
+                ).show()
             }
         }
 
+    /**
+     * Inicia un intent para seleccionar una imagen de la galería.
+     * Si la operación se completa con éxito, maneja el resultado a través del `ImagePickerHelper`.
+     */
     private val galleryLauncher =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
             if (result.resultCode == RESULT_OK) {
@@ -241,11 +282,14 @@ class EditTripFragment : Fragment() {
             }
         }
 
+    /**
+     * Inicia un intent para capturar una imagen con la cámara.
+     * Si la operación se completa con éxito, maneja el resultado a través del `ImagePickerHelper`.
+     */
     private val cameraLauncher =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
             if (result.resultCode == RESULT_OK) {
                 imagePickerHelper.handleCameraResult()
             }
         }
-
 }

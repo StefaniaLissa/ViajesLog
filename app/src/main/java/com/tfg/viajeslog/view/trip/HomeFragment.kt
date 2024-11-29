@@ -15,58 +15,62 @@ import com.tfg.viajeslog.view.adapters.TripAdapter
 import com.tfg.viajeslog.viewmodel.TripViewModel
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 
+/**
+ * Fragmento principal de la aplicación que muestra la lista de viajes creados por el usuario.
+ */
 class HomeFragment : Fragment() {
 
-    private lateinit var tripViewModel : TripViewModel
-    private lateinit var tripRecyclerView: RecyclerView
-    lateinit var tripAdapter: TripAdapter
-    private lateinit var  fab_create : FloatingActionButton
-    private lateinit var tv_no_trip : TextView
+    private lateinit var tripViewModel:     TripViewModel
+    private lateinit var tripRecyclerView:  RecyclerView
+    private lateinit var tripAdapter:       TripAdapter
+    private lateinit var fab_create:        FloatingActionButton
+    private lateinit var tv_no_trip:        TextView
 
-
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        arguments?.let {
-
-        }
-    }
-
+    /**
+     * Infla el diseño del fragmento y establece las referencias iniciales a las vistas.
+     */
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View? {
         val view = inflater.inflate(R.layout.fragment_home, container, false)
-        fab_create = view.findViewById(R.id.fab_custom)
-        tv_no_trip = view.findViewById(R.id.tv_no_trip)
+        fab_create = view.findViewById(R.id.fab_custom) // Referencia al botón flotante
+        tv_no_trip = view.findViewById(R.id.tv_no_trip) // Referencia al texto para viajes vacíos
         return view
     }
 
+    /**
+     * Configura la lógica y las vistas del fragmento después de que la vista haya sido creada.
+     */
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
+        // Configuración del RecyclerView para mostrar la lista de viajes
         tripRecyclerView = view.findViewById(R.id.recyclerView)
         tripRecyclerView.layoutManager = LinearLayoutManager(context)
-        tripRecyclerView.setHasFixedSize(true)
+        tripRecyclerView.setHasFixedSize(true) // Mejora el rendimiento si las dimensiones no cambian
         tripAdapter = TripAdapter()
         tripRecyclerView.adapter = tripAdapter
 
-        tripViewModel = ViewModelProvider(this).get(TripViewModel::class.java)
-        tripViewModel.loadTrips()
+        // Inicialización del ViewModel para cargar los datos
+        tripViewModel = ViewModelProvider(this)[TripViewModel::class.java]
+        tripViewModel.loadTrips() // Cargar la lista de viajes
 
-        tripViewModel.allTrips.observe(viewLifecycleOwner) {
-            tripAdapter.updateTripList(it.toMutableList())
-            if (it.isEmpty()) {
+        // Observador para la lista de viajes
+        tripViewModel.allTrips.observe(viewLifecycleOwner) { trips ->
+            tripAdapter.updateTripList(trips.toMutableList())
+            if (trips.isEmpty()) {
+                // Muestra un mensaje si no hay viajes
                 tv_no_trip.visibility = View.VISIBLE
             } else {
                 tv_no_trip.visibility = View.GONE
             }
         }
 
+        // Configuración del botón flotante para crear un nuevo viaje
         fab_create.setOnClickListener {
             val intent = Intent(activity, CreateTripActivity::class.java)
             startActivity(intent)
         }
-
     }
-
 }

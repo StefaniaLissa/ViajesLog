@@ -16,26 +16,30 @@ import com.tfg.viajeslog.view.adapters.EditorAdapter
 import com.tfg.viajeslog.view.adapters.UsersAdapter
 import com.tfg.viajeslog.viewmodel.UserViewModel
 
+/**
+ * Fragmento para compartir un viaje con otros usuarios, gestionando editores
+ * Proporciona funcionalidad para buscar usuarios, agregar o eliminar editores del viaje actual.
+ */
 class ShareTripFragment : Fragment() {
 
-    lateinit var sv_users: SearchView
-    lateinit var usersViewModel: UserViewModel
-    lateinit var usersAdapter: UsersAdapter
-    lateinit var rv_users: RecyclerView
+    // Variables de la vista
+    lateinit var sv_users: SearchView            // Campo de búsqueda de usuarios
+    lateinit var rv_users: RecyclerView          // RecyclerView para mostrar usuarios buscados
+    lateinit var rv_editors: RecyclerView        // RecyclerView para mostrar editores del viaje
+    lateinit var fab_custom: FloatingActionButton // Botón flotante para cerrar el fragmento
 
-    lateinit var rv_editors: RecyclerView
-    lateinit var editorsViewModel: UserViewModel
-    lateinit var editorsAdapter: EditorAdapter
+    // ViewModels
+    lateinit var usersViewModel: UserViewModel   // ViewModel para cargar usuarios
+    lateinit var editorsViewModel: UserViewModel // ViewModel para cargar editores
 
-    lateinit var fab_custom: FloatingActionButton
+    // Adapters
+    lateinit var usersAdapter: UsersAdapter      // Adapter para manejar usuarios buscados
+    lateinit var editorsAdapter: EditorAdapter   // Adapter para manejar editores del viaje
 
+    // Listas temporales
     private val tempSelectedEditors = mutableListOf<User>() // Usuarios seleccionados temporalmente
-    private val editorsList = mutableListOf<User>() // Usuarios ya guardados como editores
-    private val allUsers = mutableListOf<User>() // Todos los usuarios
-
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-    }
+    private val editorsList = mutableListOf<User>()         // Lista de usuarios ya guardados como editores
+    private val allUsers = mutableListOf<User>()            // Lista de todos los usuarios disponibles
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
@@ -53,47 +57,48 @@ class ShareTripFragment : Fragment() {
 
         val tripID = arguments?.getString("trip")!!
 
-        // Botón para cerrar el fragmento
+        // Configurar el botón flotante para cerrar el fragmento
         fab_custom.setOnClickListener {
             if (parentFragmentManager.backStackEntryCount > 0) {
-                parentFragmentManager.popBackStack()
+                parentFragmentManager.popBackStack() // Cerrar fragmento
             } else {
-                requireActivity().finish()
+                requireActivity().finish() // Finalizar actividad
             }
         }
 
-        // Configurar RecyclerView de editores
+        // Configurar RecyclerView para editores del viaje
         rv_editors.layoutManager = LinearLayoutManager(context)
         rv_editors.setHasFixedSize(true)
         editorsAdapter = EditorAdapter(tripID) { removedEditor ->
             tempSelectedEditors.remove(removedEditor)
-            filterAndRefreshUsers() // Actualizar lista de usuarios
+            filterAndRefreshUsers()
         }
         rv_editors.adapter = editorsAdapter
 
+        // Cargar y observar editores existentes
         editorsViewModel = ViewModelProvider(this).get(UserViewModel::class.java)
         editorsViewModel.loadEditors(tripID)
-
         editorsViewModel.allEditors.observe(viewLifecycleOwner) { editors ->
             editorsList.clear()
             editorsList.addAll(editors)
             editorsAdapter.updateEditorsList(editors)
-            filterAndRefreshUsers() // Actualizar lista de usuarios al cambiar los editores
+            filterAndRefreshUsers() // Actualizar lista de usuarios después de cargar editores
         }
 
-        // Configurar RecyclerView de usuarios
+        // Configurar RecyclerView para usuarios buscados
         rv_users.layoutManager = LinearLayoutManager(context)
         rv_users.setHasFixedSize(true)
         usersAdapter = UsersAdapter(tripID, editorsList, tempSelectedEditors) { addedUser ->
             tempSelectedEditors.add(addedUser)
-            filterAndRefreshUsers() // Actualizar lista de usuarios tras agregar
+            filterAndRefreshUsers()
         }
         rv_users.adapter = usersAdapter
 
+        // Cargar y observar todos los usuarios disponibles
         usersViewModel = ViewModelProvider(this).get(UserViewModel::class.java)
         usersViewModel.loadUsersExcludingEditors(tripID)
 
-        // Buscar usuarios
+        // Configurar búsqueda de usuarios
         sv_users.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
             override fun onQueryTextSubmit(query: String?): Boolean {
                 return false
@@ -101,15 +106,20 @@ class ShareTripFragment : Fragment() {
 
             override fun onQueryTextChange(newText: String?): Boolean {
                 if (!newText.isNullOrEmpty()) {
-                    searchUsers(newText)
+                    searchUsers(newText) // Buscar usuarios por texto ingresado
                 } else {
-                    usersAdapter.updateUsersList(emptyList())
+                    usersAdapter.updateUsersList(emptyList()) // Limpiar lista si el texto está vacío
                 }
                 return true
             }
         })
     }
 
+    /**
+     * Método para buscar usuarios según una consulta.
+     *
+     * @param query Texto ingresado en el campo de búsqueda.
+     */
     private fun searchUsers(query: String) {
         usersViewModel.searchUsers(query).observe(viewLifecycleOwner) { users ->
             val filteredUsers = users.filter { user ->
@@ -120,6 +130,10 @@ class ShareTripFragment : Fragment() {
         }
     }
 
+    /**
+     * Método para filtrar y actualizar la lista de usuarios disponibles.
+     * Excluye los usuarios que ya son editores o están seleccionados temporalmente.
+     */
     private fun filterAndRefreshUsers() {
         val filteredUsers = allUsers.filter { user ->
             user.id !in editorsList.map { it.id } &&
