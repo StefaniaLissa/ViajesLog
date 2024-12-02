@@ -1,6 +1,5 @@
 package com.tfg.viajeslog.view.trip
 
-// Importaciones necesarias
 import com.tfg.viajeslog.helper.ImagePickerHelper
 import android.net.Uri
 import android.os.Bundle
@@ -12,8 +11,6 @@ import android.widget.Button
 import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.ImageView
-import android.widget.LinearLayout
-import android.widget.SearchView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity.RESULT_OK
@@ -39,10 +36,6 @@ class EditTripFragment : Fragment() {
     private lateinit var iv_delete: ImageView       // Botón para eliminar la imagen de portada
     private lateinit var et_name: EditText          // Campo para editar el nombre del viaje
     private lateinit var cb_online: CheckBox        // Checkbox para marcar el viaje como público
-    private lateinit var ll_cb_share: LinearLayout  // Layout del checkbox para compartir
-    private lateinit var sv_user: SearchView        // Campo de búsqueda para usuarios
-    private lateinit var ll_users: LinearLayout     // Layout para mostrar usuarios
-    private lateinit var cb_share: CheckBox         // Checkbox para permitir compartir
     private lateinit var btn_create: Button         // Botón para guardar los cambios
 
     // Variables de Firebase

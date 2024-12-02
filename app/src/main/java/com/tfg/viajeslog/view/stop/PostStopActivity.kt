@@ -617,22 +617,6 @@ class PostStopActivity : AppCompatActivity() {
     }
 
     /**
-     * Método llamado al presionar el botón de retroceso.
-     * Si la actividad estaba en modo edición, libera el estado de edición.
-     */
-    override fun onBackPressed() {
-        super.onBackPressed()
-        if (mode == MODE_EDIT) {
-            clearEditingState(tripID, stopID)
-            Toast.makeText(
-                this,
-                "Punto de Interés liberado.",
-                Toast.LENGTH_LONG
-            ).show()
-        }
-    }
-
-    /**
      * Limpia el estado de edición al salir de la actividad.
      *
      * @param tripID ID del viaje al que pertenece el punto.

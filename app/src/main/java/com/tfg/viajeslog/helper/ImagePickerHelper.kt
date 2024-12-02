@@ -8,6 +8,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
+import android.view.View
 import android.widget.Button
 import android.widget.Toast
 import androidx.activity.result.ActivityResultLauncher
@@ -41,7 +42,8 @@ class ImagePickerHelper(
     private val onImagePicked: (List<Uri>) -> Unit // Callback con las imágenes seleccionadas
 ) {
     private var cameraUri: Uri? = null // URI para almacenar la imagen tomada desde la cámara
-    private var pendingAction: (() -> Unit)? = null // Acción pendiente para ejecutar tras el permiso
+    private var pendingAction: (() -> Unit)? =
+        null // Acción pendiente para ejecutar tras el permiso
 
     // Permiso necesario para acceder a la galería, dependiendo de la versión de Android
     private val galleryPermission =
@@ -67,7 +69,6 @@ class ImagePickerHelper(
         galleryLauncher.launch(intent)
     }
 
-
     /**
      * Abre la cámara para tomar una foto.
      *
@@ -80,7 +81,10 @@ class ImagePickerHelper(
             // put(MediaStore.Images.Media.TITLE, "New Picture")
             // put(MediaStore.Images.Media.DESCRIPTION, "From Camera")
         }
-        cameraUri = context.contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentValues)
+        cameraUri = context.contentResolver.insert(
+            MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+            contentValues
+        )
 
         val intent = Intent(MediaStore.ACTION_IMAGE_CAPTURE).apply {
             putExtra(MediaStore.EXTRA_OUTPUT, cameraUri) // Almacenar en el URI creado
@@ -103,13 +107,21 @@ class ImagePickerHelper(
         onPermissionGranted: () -> Unit
     ) {
         when {
-            ContextCompat.checkSelfPermission(context, permission) == PermissionChecker.PERMISSION_GRANTED -> {
+            ContextCompat.checkSelfPermission(
+                context,
+                permission
+            ) == PermissionChecker.PERMISSION_GRANTED -> {
                 onPermissionGranted() // Permiso ya concedido
             }
-            ActivityCompat.shouldShowRequestPermissionRationale(context as AppCompatActivity, permission) -> {
+
+            ActivityCompat.shouldShowRequestPermissionRationale(
+                context as AppCompatActivity,
+                permission
+            ) -> {
                 // Mostrar explicación y luego solicitar permiso
                 showPermissionRationaleDialog(permission, permissionLauncher)
             }
+
             else -> {
                 pendingAction = onPermissionGranted // Guardar la acción pendiente
                 permissionLauncher.launch(permission) // Solicitar permiso
@@ -184,34 +196,42 @@ class ImagePickerHelper(
      */
     fun showImagePickerDialog(
         galleryLauncher: ActivityResultLauncher<Intent>,
-        cameraLauncher: ActivityResultLauncher<Intent>,
+        cameraLauncher: ActivityResultLauncher<Intent>?,
         permissionLauncher: ActivityResultLauncher<String>
     ) {
-        val dialog = Dialog(context, R.style.CustomDialogImgTheme)
-        dialog.setContentView(R.layout.select_img)
-
-        val btnGallery: Button = dialog.findViewById(R.id.btn_gallery)
-        val btnCamera: Button = dialog.findViewById(R.id.btn_camera)
-
-        btnGallery.setOnClickListener {
+        if (cameraLauncher == null) {
             requestPermissions(
                 permission = galleryPermission,
                 permissionLauncher = permissionLauncher,
                 onPermissionGranted = { openGallery(galleryLauncher) }
             )
-            dialog.dismiss()
-        }
+        } else {
 
-        btnCamera.setOnClickListener {
-            requestPermissions(
-                permission = cameraPermission,
-                permissionLauncher = permissionLauncher,
-                onPermissionGranted = { openCamera(cameraLauncher) }
-            )
-            dialog.dismiss()
-        }
+            val dialog = Dialog(context, R.style.CustomDialogImgTheme)
+            dialog.setContentView(R.layout.select_img)
 
-        dialog.show()
+            val btnGallery: Button = dialog.findViewById(R.id.btn_gallery)
+            val btnCamera: Button = dialog.findViewById(R.id.btn_camera)
+
+            btnGallery.setOnClickListener {
+                requestPermissions(
+                    permission = galleryPermission,
+                    permissionLauncher = permissionLauncher,
+                    onPermissionGranted = { openGallery(galleryLauncher) }
+                )
+                dialog.dismiss()
+            }
+
+            btnCamera.setOnClickListener {
+                requestPermissions(
+                    permission = cameraPermission,
+                    permissionLauncher = permissionLauncher,
+                    onPermissionGranted = { openCamera(cameraLauncher) }
+                )
+                dialog.dismiss()
+
+                dialog.show()
+            }
+        }
     }
-
 }

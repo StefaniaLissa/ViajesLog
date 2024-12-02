@@ -5,6 +5,7 @@ import android.content.pm.PackageManager
 import android.os.Bundle
 import android.view.View
 import android.widget.Button
+import android.widget.ProgressBar
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
@@ -47,6 +48,7 @@ class CreateFromImgActivity : AppCompatActivity() {
     private lateinit var tv_instructions: TextView         // Texto de instrucciones iniciales
     private lateinit var tv_instructions2: TextView        // Texto de instrucciones secundarias
     private lateinit var tripID:          String           // ID del viaje
+    private lateinit var pb_save:         ProgressBar      // Barra de progreso para guardar los stops
     private lateinit var db:              FirebaseFirestore // Instancia de Firebase Firestore
 
     // Helper
@@ -75,7 +77,7 @@ class CreateFromImgActivity : AppCompatActivity() {
         btn_upload.setOnClickListener {
             imagePickerHelper.showImagePickerDialog(
                 galleryLauncher = galleryLauncher,
-                cameraLauncher = cameraLauncher,
+                cameraLauncher = null,
                 permissionLauncher = permissionLauncher
             )
         }
@@ -101,13 +103,13 @@ class CreateFromImgActivity : AppCompatActivity() {
 
             stopViewModel.stops.observe(this) { stops ->
                 if (!stops.isNullOrEmpty()) {
+                    btn_process.visibility = View.GONE
                     // Actualizar el adaptador de stops
                     stopAdapter.updateStopList(stops)
                     // Actualizar la UI
                     tv_instructions.visibility = View.GONE
                     sv_images.visibility = View.GONE
                     btn_upload.visibility = View.GONE
-                    btn_process.visibility = View.GONE
                     tv_instructions2.visibility = View.VISIBLE
                     btn_save.visibility = View.VISIBLE
                 }
@@ -133,6 +135,8 @@ class CreateFromImgActivity : AppCompatActivity() {
 
         // Guardar
         btn_save.setOnClickListener {
+            pb_save.visibility = View.VISIBLE
+            btn_save.visibility = View.GONE
             for (stop in stopViewModel.stops.value!!) {
                 val hm_stop = hashMapOf(
                     "name" to stop.name,
@@ -160,6 +164,8 @@ class CreateFromImgActivity : AppCompatActivity() {
                                     UpdateFirestore(uri.toString(), documentReference.id)
                                 }
                             }.addOnFailureListener { e ->
+                                pb_save.visibility = View.GONE
+                                btn_save.visibility = View.VISIBLE
                                 Toast.makeText(applicationContext, "No se ha podido subir la imagen: ${e.message}", Toast.LENGTH_SHORT).show()
                             }
 
@@ -185,6 +191,8 @@ class CreateFromImgActivity : AppCompatActivity() {
                             }
                         }
                     }.addOnFailureListener { e ->
+                        pb_save.visibility = View.GONE
+                        btn_save.visibility = View.VISIBLE
                         Toast.makeText(applicationContext, "${e.message}", Toast.LENGTH_SHORT)
                             .show()
                     }
@@ -201,6 +209,7 @@ class CreateFromImgActivity : AppCompatActivity() {
         tv_instructions2 = findViewById(R.id.tv_instructions2)
         btn_upload = findViewById(R.id.btn_upload)
         btn_save = findViewById(R.id.btn_save)
+        pb_save = findViewById(R.id.pb_save)
         btn_process = findViewById(R.id.btn_process)
         sv_images = findViewById(R.id.sv_images)
         rv_images = findViewById(R.id.rv_images)
@@ -269,13 +278,6 @@ class CreateFromImgActivity : AppCompatActivity() {
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
             if (result.resultCode == RESULT_OK) {
                 imagePickerHelper.handleGalleryResult(result.data)
-            }
-        }
-
-    private val cameraLauncher =
-        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-            if (result.resultCode == RESULT_OK) {
-                imagePickerHelper.handleCameraResult()
             }
         }
 }
